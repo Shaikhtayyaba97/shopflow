@@ -36,6 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const profile = { uid: firebaseUser.uid, ...userDoc.data() } as UserProfile;
           setUserProfile(profile);
         } else {
+          // If profile doesn't exist, log out the user.
+          console.error("User profile not found in Firestore.");
+          await auth.signOut();
           setUserProfile(null); 
         }
       } else {
@@ -54,9 +57,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isAuthPage = pathname === '/login';
 
     if (!user && !isAuthPage) {
-      router.push('/login');
+      router.replace('/login');
     } else if (user && isAuthPage) {
-      router.push('/dashboard');
+      router.replace('/dashboard');
     }
   }, [user, loading, router, pathname]);
 
