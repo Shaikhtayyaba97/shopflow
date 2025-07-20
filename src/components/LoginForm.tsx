@@ -14,7 +14,7 @@ import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
-  email: z.string().email({ message: "Invalid email address." }),
+  phoneNumber: z.string().min(10, { message: "Phone number must be at least 10 digits." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
 });
 
@@ -26,22 +26,22 @@ export function LoginForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      phoneNumber: "",
       password: "",
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setLoading(true);
+    const email = `${values.phoneNumber}@shopflow.com`;
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
-      // The redirect is handled by AuthProvider, but we can push to dashboard as a fallback.
+      await signInWithEmailAndPassword(auth, email, values.password);
       router.push('/dashboard');
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Invalid email or password.",
+        description: "Invalid phone number or password.",
       });
     } finally {
       setLoading(false);
@@ -53,12 +53,12 @@ export function LoginForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
-          name="email"
+          name="phoneNumber"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Phone Number</FormLabel>
               <FormControl>
-                <Input placeholder="admin@shopflow.com" {...field} />
+                <Input placeholder="03363856003" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -7,7 +7,7 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle className="text-2xl">Welcome to ShopFlow</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
+          <CardDescription>Enter your phone number and password to sign in</CardDescription>
         </CardHeader>
         <CardContent>
           <LoginForm />
