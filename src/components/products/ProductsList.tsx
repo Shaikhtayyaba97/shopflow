@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -14,7 +15,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -25,10 +25,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { ProductForm } from './ProductForm';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function ProductsList() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -37,6 +37,8 @@ export function ProductsList() {
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const { toast } = useToast();
+    const { userProfile } = useAuth();
+    const isAdmin = userProfile?.role === 'admin';
 
     useEffect(() => {
         const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
@@ -106,7 +108,7 @@ export function ProductsList() {
                 <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Barcode</TableHead>
-                    <TableHead>Purchase Price</TableHead>
+                    {isAdmin && <TableHead>Purchase Price</TableHead>}
                     <TableHead>Selling Price</TableHead>
                     <TableHead>Stock Qty</TableHead>
                     <TableHead>Created At</TableHead>
@@ -116,13 +118,13 @@ export function ProductsList() {
             <TableBody>
                 {products.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">No products found.</TableCell>
+                        <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">No products found.</TableCell>
                     </TableRow>
                 ) : products.map((product) => (
                     <TableRow key={product.id}>
                         <TableCell className="font-medium">{product.name}</TableCell>
                         <TableCell>{product.barcode}</TableCell>
-                        <TableCell>${product.purchasePrice.toFixed(2)}</TableCell>
+                        {isAdmin && <TableCell>${product.purchasePrice.toFixed(2)}</TableCell>}
                         <TableCell>${product.sellingPrice.toFixed(2)}</TableCell>
                         <TableCell>{product.quantity}</TableCell>
                         <TableCell>{product.createdAt ? format(product.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
@@ -131,6 +133,7 @@ export function ProductsList() {
                                 <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
                                     <Edit className="h-4 w-4" />
                                 </Button>
+                                {isAdmin && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
                                         <Button variant="ghost" size="icon" disabled={deletingId === product.id}>
@@ -150,6 +153,7 @@ export function ProductsList() {
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
+                                )}
                             </div>
                         </TableCell>
                     </TableRow>

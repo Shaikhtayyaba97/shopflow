@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -14,11 +15,12 @@ import { Loader2, ScanLine } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { BarcodeScanner } from '../billing/BarcodeScanner';
 import type { Product } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   barcode: z.string().optional(),
-  purchasePrice: z.coerce.number().positive("Purchase price must be positive."),
+  purchasePrice: z.coerce.number().min(0, "Purchase price cannot be negative.").optional(),
   sellingPrice: z.coerce.number().positive("Selling price must be positive."),
   quantity: z.coerce.number().int().min(0, "Quantity cannot be negative."),
 });
@@ -36,6 +38,8 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
   const [loading, setLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const { toast } = useToast();
+  const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'admin';
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(formSchema),
@@ -78,18 +82,20 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
     setLoading(true);
     try {
       if (isEditMode && productToEdit) {
-        // Update existing product
         const productRef = doc(db, 'products', productToEdit.id);
-        await setDoc(productRef, { 
+        const updateData: any = {
             ...values,
-            createdAt: productToEdit.createdAt // Keep original creation date
-        }, { merge: true });
+        };
+        if (!isAdmin) {
+            delete updateData.purchasePrice; // Ensure shopkeeper cannot update purchase price
+        }
+        await setDoc(productRef, updateData , { merge: true });
         toast({ title: "Success", description: "Product updated successfully." });
         onProductUpdated?.();
       } else {
-        // Add new product
         await addDoc(collection(db, 'products'), {
           ...values,
+          purchasePrice: isAdmin ? values.purchasePrice : 0, // Default to 0 if not admin
           barcode: values.barcode || '', 
           createdAt: serverTimestamp(),
         });
@@ -116,7 +122,7 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
             <FormItem>
               <FormLabel>Product Name</FormLabel>
               <FormControl>
-                <Input placeholder="E.g., T-Shirt" {...field} />
+                <Input placeholder="E.g., Lipstick" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -151,24 +157,26 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
           )}
         />
         <div className="grid grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="purchasePrice"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Purchase Price ($)</FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {isAdmin && (
+                <FormField
+                  control={form.control}
+                  name="purchasePrice"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Purchase Price ($)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            )}
             <FormField
               control={form.control}
               name="sellingPrice"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className={!isAdmin ? 'col-span-2' : ''}>
                   <FormLabel>Selling Price ($)</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} />
