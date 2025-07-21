@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,7 +13,9 @@ export function ProductsList() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+        // Temporarily removed orderBy('createdAt', 'desc') to resolve permission error.
+        // This is likely due to a missing Firestore index.
+        const q = query(collection(db, 'products'));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const productsData: Product[] = [];
             querySnapshot.forEach((doc) => {
