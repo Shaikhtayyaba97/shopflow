@@ -30,16 +30,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const profile = { uid: firebaseUser.uid, ...userDoc.data() } as UserProfile;
-          setUserProfile(profile);
-        } else {
-          // If profile doesn't exist, log out the user.
-          console.error("User profile not found in Firestore.");
-          await auth.signOut();
-          setUserProfile(null); 
+        try {
+            const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const userDoc = await getDoc(userDocRef);
+            if (userDoc.exists()) {
+              const profile = { uid: firebaseUser.uid, ...userDoc.data() } as UserProfile;
+              setUserProfile(profile);
+            } else {
+              console.error("User profile not found in Firestore. Signing out.");
+              await auth.signOut();
+            }
+        } catch (error) {
+            console.error("Error fetching user profile:", error);
+            // Also sign out if there's an error fetching the profile
+            await auth.signOut();
         }
       } else {
         setUser(null);
@@ -58,10 +62,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!user && !isAuthPage) {
       router.replace('/login');
-    } else if (user && isAuthPage) {
+    } else if (user && userProfile && isAuthPage) {
       router.replace('/dashboard');
     }
-  }, [user, loading, router, pathname]);
+  }, [user, userProfile, loading, pathname, router]);
+
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading }}>
