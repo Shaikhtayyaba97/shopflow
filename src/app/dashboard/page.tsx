@@ -30,7 +30,7 @@ export default function DashboardPage() {
                 <ScanLine className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <CardDescription>Start a new sale by scanning or searching products.</CardDescription>
+                <p className="text-sm text-muted-foreground pt-4">Start a new sale by scanning or searching products.</p>
                 <Button asChild className="mt-4">
                   <Link href="/dashboard/billing">Go to Billing</Link>
                 </Button>
@@ -45,7 +45,7 @@ export default function DashboardPage() {
                 <Package className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <CardDescription>Add, edit, and view your products.</CardDescription>
+                <p className="text-sm text-muted-foreground pt-4">Add, edit, and view your products.</p>
                 <Button asChild className="mt-4">
                   <Link href="/dashboard/products">Go to Products</Link>
                 </Button>
@@ -57,7 +57,7 @@ export default function DashboardPage() {
                 <LineChart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <CardDescription>Analyze sales and profit reports.</CardDescription>
+                <p className="text-sm text-muted-foreground pt-4">Analyze sales and profit reports.</p>
                 <Button asChild className="mt-4">
                   <Link href="/dashboard/reports">Go to Reports</Link>
                 </Button>
