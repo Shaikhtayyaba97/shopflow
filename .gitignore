@@ -39,3 +39,6 @@ next-env.d.ts
 .genkit/
 .genkit-cache/
 genkit.log
+
+
+serviceAccountKey.json
