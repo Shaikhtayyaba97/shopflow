@@ -1,10 +1,9 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to get user role from the users collection
+
+    // Helper function to check user role
     function getUserRole(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
@@ -12,19 +11,24 @@ service cloud.firestore {
     // Users can only read their own profile
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
     }
 
-    // Products can be read by admin/shopkeeper, but only written by admin
+    // Products collection rules
     match /products/{productId} {
+      // Admins and Shopkeepers can read products
       allow read: if request.auth != null && (getUserRole(request.auth.uid) == 'admin' || getUserRole(request.auth.uid) == 'shopkeeper');
+      // Only Admins can create, update, or delete products
       allow write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
     }
 
-    // Sales can be created by admin/shopkeeper, but only read by admin
+    // Sales collection rules
     match /sales/{saleId} {
-      allow read: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+      // Admins and Shopkeepers can create sales
       allow create: if request.auth != null && (getUserRole(request.auth.uid) == 'admin' || getUserRole(request.auth.uid) == 'shopkeeper');
-      // No updates or deletes allowed for sales records for data integrity
+      // Only Admins can read sales data (for reports)
+      allow read: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+      // Nobody can update or delete sales records to maintain data integrity
       allow update, delete: if false;
     }
   }
