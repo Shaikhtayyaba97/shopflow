@@ -2,28 +2,36 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
+  
+    // Helper function to get the user's role from the 'users' collection
     function getUserRole(userId) {
       return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
-
+    
+    // Rules for the 'users' collection
     match /users/{userId} {
+      // Only the authenticated user can read their own profile
       allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
+      // Users cannot be created, updated, or deleted from the client
+      allow write: if false; 
     }
-
+    
+    // Rules for the 'products' collection
     match /products/{productId} {
-      // Admins and shopkeepers can get and list products
+      // Admins and Shopkeepers can read/list products
       allow get, list: if request.auth != null && (getUserRole(request.auth.uid) == 'admin' || getUserRole(request.auth.uid) == 'shopkeeper');
-      // Only admins can create, update, and delete products
-      allow write, delete: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+      // Only Admins can create, update, or delete products
+      allow write: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
     }
-
+    
+    // Rules for the 'sales' collection
     match /sales/{saleId} {
-        // Admins and shopkeepers can create new sales
-        allow create: if request.auth != null && (getUserRole(request.auth.uid) == 'admin' || getUserRole(request.auth.uid) == 'shopkeeper');
-        // Only admins can read sales data for reporting
-        allow get, list: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+       // Admins and Shopkeepers can create sales
+      allow create: if request.auth != null && (getUserRole(request.auth.uid) == 'admin' || getUserRole(request.auth.uid) == 'shopkeeper');
+      // Only Admins can read sales data (for reports)
+      allow read: if request.auth != null && getUserRole(request.auth.uid) == 'admin';
+      // Sales cannot be updated or deleted from the client
+      allow update, delete: if false;
     }
   }
 }

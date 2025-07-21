@@ -12,6 +12,7 @@ export interface Product {
   barcode: string;
   purchasePrice: number;
   sellingPrice: number;
+  quantity: number;
   createdAt: Timestamp;
 }
 

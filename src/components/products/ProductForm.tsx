@@ -1,40 +1,72 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ScanLine } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { BarcodeScanner } from '../billing/BarcodeScanner';
+import type { Product } from '@/types';
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   barcode: z.string().optional(),
   purchasePrice: z.coerce.number().positive("Purchase price must be positive."),
   sellingPrice: z.coerce.number().positive("Selling price must be positive."),
+  quantity: z.coerce.number().int().min(0, "Quantity cannot be negative."),
 });
 
-export function ProductForm({ onProductAdded }: { onProductAdded?: () => void }) {
+type ProductFormValues = z.infer<typeof formSchema>;
+
+interface ProductFormProps {
+  onProductAdded?: () => void;
+  onProductUpdated?: () => void;
+  productToEdit?: Product | null;
+  isEditMode?: boolean;
+}
+
+export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, isEditMode = false }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const { toast } = useToast();
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<ProductFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
       barcode: "",
       purchasePrice: 0,
       sellingPrice: 0,
+      quantity: 0,
     },
   });
+
+  useEffect(() => {
+    if (isEditMode && productToEdit) {
+      form.reset({
+        name: productToEdit.name,
+        barcode: productToEdit.barcode,
+        purchasePrice: productToEdit.purchasePrice,
+        sellingPrice: productToEdit.sellingPrice,
+        quantity: productToEdit.quantity,
+      });
+    } else {
+      form.reset({
+        name: "",
+        barcode: "",
+        purchasePrice: 0,
+        sellingPrice: 0,
+        quantity: 0,
+      });
+    }
+  }, [productToEdit, isEditMode, form]);
 
   const handleBarcodeScanned = (barcode: string) => {
     form.setValue('barcode', barcode);
@@ -42,28 +74,41 @@ export function ProductForm({ onProductAdded }: { onProductAdded?: () => void })
     toast({ title: "Barcode Scanned", description: barcode });
   };
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: ProductFormValues) {
     setLoading(true);
     try {
-      await addDoc(collection(db, 'products'), {
-        ...values,
-        barcode: values.barcode || '', // Ensure barcode is at least an empty string
-        createdAt: serverTimestamp(),
-      });
-      toast({ title: "Success", description: "Product added successfully." });
-      form.reset();
-      onProductAdded?.();
+      if (isEditMode && productToEdit) {
+        // Update existing product
+        const productRef = doc(db, 'products', productToEdit.id);
+        await setDoc(productRef, { 
+            ...values,
+            createdAt: productToEdit.createdAt // Keep original creation date
+        }, { merge: true });
+        toast({ title: "Success", description: "Product updated successfully." });
+        onProductUpdated?.();
+      } else {
+        // Add new product
+        await addDoc(collection(db, 'products'), {
+          ...values,
+          barcode: values.barcode || '', 
+          createdAt: serverTimestamp(),
+        });
+        toast({ title: "Success", description: "Product added successfully." });
+        form.reset();
+        onProductAdded?.();
+      }
     } catch (error) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not add product.' });
+      const action = isEditMode ? 'update' : 'add';
+      toast({ variant: 'destructive', title: 'Error', description: `Could not ${action} product.` });
     } finally {
       setLoading(false);
     }
   }
 
-  return (
+  const formContent = (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-lg">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -133,11 +178,45 @@ export function ProductForm({ onProductAdded }: { onProductAdded?: () => void })
               )}
             />
         </div>
-        <Button type="submit" disabled={loading}>
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Add Product
-        </Button>
+         <FormField
+          control={form.control}
+          name="quantity"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Stock Quantity</FormLabel>
+              <FormControl>
+                <Input type="number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {!isEditMode && (
+          <Button type="submit" disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Add Product
+          </Button>
+        )}
       </form>
     </Form>
   );
+
+  if (isEditMode) {
+    return (
+      <>
+        {formContent}
+        <DialogFooter className="pt-4">
+          <DialogClose asChild>
+            <Button variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button onClick={form.handleSubmit(onSubmit)} disabled={loading}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </>
+    );
+  }
+
+  return <div className="max-w-lg">{formContent}</div>;
 }

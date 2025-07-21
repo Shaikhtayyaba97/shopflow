@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, runTransaction, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product, CartItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -76,9 +76,17 @@ export function BillingClient() {
   };
 
   const addToCart = (product: Product) => {
+    if (product.quantity <= 0) {
+        toast({ variant: 'destructive', title: 'Out of Stock', description: `${product.name} is currently out of stock.`});
+        return;
+    }
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id);
       if (existingItem) {
+        if(existingItem.quantity >= product.quantity) {
+            toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only ${product.quantity} of ${product.name} available.`});
+            return prevCart;
+        }
         return prevCart.map((item) =>
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -95,7 +103,17 @@ export function BillingClient() {
         removeFromCart(productId);
         return;
     }
-    setCart(cart.map(item => item.id === productId ? { ...item, quantity: newQuantity } : item));
+    setCart(cart.map(item => {
+        if (item.id === productId) {
+            const productInCart = cart.find(p => p.id === productId)!;
+            if (newQuantity > productInCart.quantity) {
+                 toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only ${item.quantity} of ${item.name} available.`});
+                 return item; // return original item without change
+            }
+            return { ...item, quantity: newQuantity }
+        }
+        return item;
+    }));
   }
 
   const removeFromCart = (productId: string) => {
@@ -107,30 +125,54 @@ export function BillingClient() {
   const handleCheckout = async () => {
     if (cart.length === 0 || !userProfile) return;
     setIsCheckingOut(true);
+
     try {
-        const saleData = {
-            items: cart.map(item => ({
-                productId: item.id,
-                name: item.name,
-                quantity: item.quantity,
-                sellingPrice: item.sellingPrice,
-                purchasePrice: item.purchasePrice
-            })),
-            totalAmount: totalAmount,
-            createdBy: userProfile.uid,
-            createdAt: serverTimestamp()
-        };
-        await addDoc(collection(db, 'sales'), saleData);
-        toast({ title: 'Checkout Successful', description: 'Sale has been recorded.' });
+        await runTransaction(db, async (transaction) => {
+            const saleData = {
+                items: [],
+                totalAmount: totalAmount,
+                createdBy: userProfile.uid,
+                createdAt: serverTimestamp()
+            };
+
+            for (const item of cart) {
+                const productRef = doc(db, 'products', item.id);
+                const productDoc = await transaction.get(productRef);
+
+                if (!productDoc.exists()) {
+                    throw new Error(`Product ${item.name} not found.`);
+                }
+
+                const currentQuantity = productDoc.data().quantity;
+                if (currentQuantity < item.quantity) {
+                    throw new Error(`Not enough stock for ${item.name}. Only ${currentQuantity} left.`);
+                }
+
+                const newQuantity = currentQuantity - item.quantity;
+                transaction.update(productRef, { quantity: newQuantity });
+                
+                (saleData.items as any).push({
+                    productId: item.id,
+                    name: item.name,
+                    quantity: item.quantity,
+                    sellingPrice: item.sellingPrice,
+                    purchasePrice: item.purchasePrice
+                });
+            }
+
+            const salesCollectionRef = collection(db, 'sales');
+            transaction.set(doc(salesCollectionRef), saleData);
+        });
+        
+        toast({ title: 'Checkout Successful', description: 'Sale has been recorded and stock updated.' });
         setCart([]);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error during checkout:", error);
-        toast({ variant: 'destructive', title: 'Checkout Error', description: 'Could not complete the sale.' });
+        toast({ variant: 'destructive', title: 'Checkout Error', description: error.message || 'Could not complete the sale.' });
     } finally {
         setIsCheckingOut(false);
     }
   }
-
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
@@ -147,11 +189,12 @@ export function BillingClient() {
                         handleSearch(e.target.value);
                     }}
                     className="pl-10"
+                    disabled={isCheckingOut}
                 />
             </div>
             <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" disabled={isCheckingOut}>
                         <ScanLine className="h-5 w-5" />
                     </Button>
                 </DialogTrigger>
@@ -169,7 +212,12 @@ export function BillingClient() {
           <div className="border rounded-md max-h-60 overflow-y-auto">
             {searchResults.map(product => (
               <div key={product.id} onClick={() => addToCart(product)} className="p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between">
-                <span>{product.name}</span>
+                <div>
+                    <span>{product.name}</span>
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${product.quantity > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+                    </span>
+                </div>
                 <span className="text-muted-foreground">${product.sellingPrice.toFixed(2)}</span>
               </div>
             ))}
@@ -198,15 +246,15 @@ export function BillingClient() {
                             <TableCell>{item.name}</TableCell>
                             <TableCell>
                                 <div className="flex items-center gap-1">
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity - 1)}><Minus className="h-4 w-4" /></Button>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity - 1)} disabled={isCheckingOut}><Minus className="h-4 w-4" /></Button>
                                     <span className="w-4 text-center">{item.quantity}</span>
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity + 1)}><Plus className="h-4 w-4" /></Button>
+                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity + 1)} disabled={isCheckingOut}><Plus className="h-4 w-4" /></Button>
                                 </div>
                             </TableCell>
                             <TableCell className="text-right">${item.sellingPrice.toFixed(2)}</TableCell>
                             <TableCell className="text-right">${(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
                             <TableCell className="text-right">
-                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeFromCart(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeFromCart(item.id)} disabled={isCheckingOut}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                             </TableCell>
                         </TableRow>
                     ))}
@@ -216,7 +264,7 @@ export function BillingClient() {
         {cart.length > 0 && (
             <div className="flex justify-between items-center pt-4 border-t">
                 <div className="text-2xl font-bold">Total: ${totalAmount.toFixed(2)}</div>
-                <Button size="lg" onClick={handleCheckout} disabled={isCheckingOut}>
+                <Button size="lg" onClick={handleCheckout} disabled={isCheckingOut || cart.length === 0}>
                     {isCheckingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Checkout
                 </Button>

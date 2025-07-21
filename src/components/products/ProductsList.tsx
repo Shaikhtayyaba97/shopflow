@@ -1,21 +1,45 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product } from '@/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
+import { Edit, Trash2, Loader2 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { ProductForm } from './ProductForm';
+import { useToast } from '@/hooks/use-toast';
 
 export function ProductsList() {
     const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const { toast } = useToast();
 
     useEffect(() => {
-        // Temporarily removed orderBy('createdAt', 'desc') to resolve permission error.
-        // This is likely due to a missing Firestore index.
-        const q = query(collection(db, 'products'));
+        const q = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const productsData: Product[] = [];
             querySnapshot.forEach((doc) => {
@@ -25,11 +49,47 @@ export function ProductsList() {
             setLoading(false);
         }, (error) => {
             console.error("Error fetching products: ", error);
+            if (error.code === 'failed-precondition') {
+                toast({
+                    variant: 'destructive',
+                    title: 'Database Index Missing',
+                    description: 'Please create the required Firestore index to sort products.',
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error',
+                    description: 'Could not fetch products.',
+                });
+            }
             setLoading(false);
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [toast]);
+
+    const handleEdit = (product: Product) => {
+        setSelectedProduct(product);
+        setIsEditModalOpen(true);
+    };
+
+    const handleDelete = async (productId: string) => {
+        setDeletingId(productId);
+        try {
+            await deleteDoc(doc(db, "products", productId));
+            toast({ title: "Success", description: "Product deleted." });
+        } catch (error) {
+            console.error("Error deleting product: ", error);
+            toast({ variant: 'destructive', title: 'Error', description: 'Could not delete product.' });
+        } finally {
+            setDeletingId(null);
+        }
+    };
+    
+    const handleProductUpdated = () => {
+        setIsEditModalOpen(false);
+        setSelectedProduct(null);
+    }
 
     if (loading) {
         return (
@@ -40,6 +100,7 @@ export function ProductsList() {
     }
 
     return (
+        <>
         <Table>
             <TableHeader>
                 <TableRow>
@@ -47,13 +108,15 @@ export function ProductsList() {
                     <TableHead>Barcode</TableHead>
                     <TableHead>Purchase Price</TableHead>
                     <TableHead>Selling Price</TableHead>
+                    <TableHead>Stock Qty</TableHead>
                     <TableHead>Created At</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {products.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">No products found.</TableCell>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">No products found.</TableCell>
                     </TableRow>
                 ) : products.map((product) => (
                     <TableRow key={product.id}>
@@ -61,10 +124,51 @@ export function ProductsList() {
                         <TableCell>{product.barcode}</TableCell>
                         <TableCell>${product.purchasePrice.toFixed(2)}</TableCell>
                         <TableCell>${product.sellingPrice.toFixed(2)}</TableCell>
-                        <TableCell>{product.createdAt ? format(product.createdAt.toDate(), 'PPpp') : 'N/A'}</TableCell>
+                        <TableCell>{product.quantity}</TableCell>
+                        <TableCell>{product.createdAt ? format(product.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
+                        <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                                <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" disabled={deletingId === product.id}>
+                                            {deletingId === product.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This action cannot be undone. This will permanently delete the product.
+                                        </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDelete(product.id)}>Continue</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                        </TableCell>
                     </TableRow>
                 ))}
             </TableBody>
         </Table>
+
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Product</DialogTitle>
+                </DialogHeader>
+                <ProductForm
+                    isEditMode
+                    productToEdit={selectedProduct}
+                    onProductUpdated={handleProductUpdated}
+                />
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }
