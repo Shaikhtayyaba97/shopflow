@@ -16,7 +16,7 @@ import { BarcodeScanner } from '../billing/BarcodeScanner';
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
-  barcode: z.string().min(1, "Barcode is required."),
+  barcode: z.string().optional(),
   purchasePrice: z.coerce.number().positive("Purchase price must be positive."),
   sellingPrice: z.coerce.number().positive("Selling price must be positive."),
 });
@@ -47,6 +47,7 @@ export function ProductForm({ onProductAdded }: { onProductAdded?: () => void })
     try {
       await addDoc(collection(db, 'products'), {
         ...values,
+        barcode: values.barcode || '', // Ensure barcode is at least an empty string
         createdAt: serverTimestamp(),
       });
       toast({ title: "Success", description: "Product added successfully." });
@@ -81,7 +82,7 @@ export function ProductForm({ onProductAdded }: { onProductAdded?: () => void })
           name="barcode"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Barcode</FormLabel>
+              <FormLabel>Barcode (Optional)</FormLabel>
               <div className="flex gap-2">
                 <FormControl>
                   <Input placeholder="Scan or enter barcode" {...field} />
