@@ -62,15 +62,11 @@ export function AppSidebar({ userProfile }: { userProfile: UserProfile }) {
             <span className="sr-only">ShopFlow</span>
           </Link>
           <NavLink href="/dashboard" icon={Home} label="Dashboard" />
+          <NavLink href="/dashboard/products" icon={Package} label="Products" />
+          <NavLink href="/dashboard/billing" icon={ScanLine} label="Billing" />
           {userProfile.role === 'admin' && (
-            <>
-              <NavLink href="/dashboard/products" icon={Package} label="Products" />
-              <NavLink href="/dashboard/reports" icon={LineChart} label="Reports" />
-            </>
+            <NavLink href="/dashboard/reports" icon={LineChart} label="Reports" />
           )}
-          { (userProfile.role === 'shopkeeper' || userProfile.role === 'admin') && 
-            <NavLink href="/dashboard/billing" icon={ScanLine} label="Billing" />
-          }
         </nav>
         <nav className="mt-auto flex flex-col items-center gap-4 px-2 sm:py-5">
           <Tooltip>

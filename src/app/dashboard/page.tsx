@@ -1,7 +1,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Loader2, Package, ScanLine, LineChart, LogOut } from "lucide-react";
@@ -42,53 +42,42 @@ export default function DashboardPage() {
       <p className="text-muted-foreground">Here's a quick overview of your shop. Select an action to get started.</p>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
-        { (userProfile?.role === 'admin' || userProfile?.role === 'shopkeeper') && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center justify-between">
-                    <span>Billing</span>
-                    <ScanLine className="h-4 w-4 text-muted-foreground" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground pt-4">Start a new sale by scanning or searching products.</p>
-                <Button asChild className="mt-4">
-                  <Link href="/dashboard/billing">Go to Billing</Link>
-                </Button>
-              </CardContent>
-            </Card>
-        )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Billing</CardTitle>
+            <CardDescription>Start a new sale by scanning or searching products.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="mt-4">
+              <Link href="/dashboard/billing">Go to Billing</Link>
+            </Button>
+          </CardContent>
+        </Card>
+       
+        <Card>
+          <CardHeader>
+            <CardTitle>Manage Products</CardTitle>
+            <CardDescription>Add, edit, and view your products.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="mt-4">
+              <Link href="/dashboard/products">Go to Products</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
         {userProfile?.role === 'admin' && (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center justify-between">
-                    <span>Manage Products</span>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                 <p className="text-sm text-muted-foreground pt-4">Add, edit, and view your products.</p>
-                <Button asChild className="mt-4">
-                  <Link href="/dashboard/products">Go to Products</Link>
-                </Button>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center justify-between">
-                    <span>View Reports</span>
-                    <LineChart className="h-4 w-4 text-muted-foreground" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground pt-4">Analyze sales and profit reports.</p>
-                <Button asChild className="mt-4">
-                  <Link href="/dashboard/reports">Go to Reports</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </>
+          <Card>
+            <CardHeader>
+              <CardTitle>View Reports</CardTitle>
+              <CardDescription>Analyze sales and profit reports.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="mt-4">
+                <Link href="/dashboard/reports">Go to Reports</Link>
+              </Button>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
