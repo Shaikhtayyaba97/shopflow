@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface UserProfile {
@@ -33,5 +34,7 @@ export interface Sale {
   items: SaleItem[];
   totalAmount: number;
   createdBy: string;
+  createdByName: string | null;
+  createdByRole: 'admin' | 'shopkeeper';
   createdAt: Timestamp;
 }

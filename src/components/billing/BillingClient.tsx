@@ -172,10 +172,19 @@ export function BillingClient() {
 
     try {
         await runTransaction(db, async (transaction) => {
-            const saleData: {items: any[], totalAmount: number, createdBy: string, createdAt: any} = {
+            const saleData: {
+                items: any[], 
+                totalAmount: number, 
+                createdBy: string,
+                createdByName: string | null,
+                createdByRole: string,
+                createdAt: any
+            } = {
                 items: [],
                 totalAmount: totalAmount,
                 createdBy: userProfile.uid,
+                createdByName: userProfile.email,
+                createdByRole: userProfile.role,
                 createdAt: serverTimestamp()
             };
 

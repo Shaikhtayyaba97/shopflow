@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '../ui/badge';
 
 interface EnrichedSaleItem extends SaleItem {
   profit: number;
@@ -50,10 +51,6 @@ export function SalesClient() {
                 orderBy('createdAt', 'desc')
             ];
 
-            if (!isAdmin) {
-                constraints.push(where('createdBy', '==', userProfile.uid));
-            }
-
             const q = query(collection(db, 'sales'), ...constraints);
             const querySnapshot = await getDocs(q);
             const salesData = querySnapshot.docs.map(doc => {
@@ -61,7 +58,7 @@ export function SalesClient() {
                 let totalProfit = 0;
                 
                 const enrichedItems = sale.items.map(item => {
-                    const profit = (item.sellingPrice - item.purchasePrice) * item.quantity;
+                    const profit = (item.sellingPrice - (item.purchasePrice || 0)) * item.quantity;
                     totalProfit += profit;
                     return { ...item, profit };
                 });
@@ -166,6 +163,7 @@ export function SalesClient() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Date</TableHead>
+                                        <TableHead>Sold By</TableHead>
                                         <TableHead>Product</TableHead>
                                         <TableHead>Qty</TableHead>
                                         {isAdmin && <TableHead className="text-right">Buying Price</TableHead>}
@@ -177,7 +175,7 @@ export function SalesClient() {
                                 <TableBody>
                                     {sales.length === 0 ? (
                                         <TableRow>
-                                            <TableCell colSpan={isAdmin ? 7 : 5} className="text-center py-8 text-muted-foreground">
+                                            <TableCell colSpan={isAdmin ? 8 : 6} className="text-center py-8 text-muted-foreground">
                                                 No sales recorded for the selected period.
                                             </TableCell>
                                         </TableRow>
@@ -186,6 +184,14 @@ export function SalesClient() {
                                             sale.items.map((item, index) => (
                                                 <TableRow key={`${sale.id}-${item.productId}-${index}`}>
                                                     <TableCell>{index === 0 ? format(sale.createdAt.toDate(), 'PP p') : ''}</TableCell>
+                                                    <TableCell>
+                                                      {index === 0 ? (
+                                                        <div>
+                                                          <p>{sale.createdByName?.split('@')[0]}</p>
+                                                          <Badge variant="outline">{sale.createdByRole}</Badge>
+                                                        </div>
+                                                      ) : ''}
+                                                    </TableCell>
                                                     <TableCell>{item.name}</TableCell>
                                                     <TableCell>{item.quantity}</TableCell>
                                                     {isAdmin && <TableCell className="text-right">{item.purchasePrice.toFixed(2)}</TableCell>}
