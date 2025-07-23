@@ -132,7 +132,7 @@ export function SalesClient() {
                 newItems[itemIndex] = {
                     ...newItems[itemIndex],
                     returned: true,
-                    returnedAt: serverTimestamp() as Timestamp,
+                    returnedAt: Timestamp.fromDate(new Date()),
                     returnedBy: userProfile.email || userProfile.uid
                 };
                 
