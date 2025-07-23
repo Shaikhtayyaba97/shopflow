@@ -163,7 +163,7 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
                         <DialogHeader>
                             <DialogTitle>Scan Barcode</DialogTitle>
                         </DialogHeader>
-                        {isScannerOpen && <BarcodeScanner onScan={handleBarcodeScanned} />}
+                        {isScannerOpen && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={useRef(null)} />}
                     </DialogContent>
                 </Dialog>
               </div>
@@ -178,7 +178,7 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
                   name="purchasePrice"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Purchase Price ($)</FormLabel>
+                      <FormLabel>Purchase Price</FormLabel>
                       <FormControl>
                         <Input type="number" step="0.01" {...field} />
                       </FormControl>
@@ -192,7 +192,7 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
               name="sellingPrice"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Selling Price ($)</FormLabel>
+                  <FormLabel>Selling Price</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" {...field} placeholder={!isAdmin ? "Leave blank to set later" : "0.00"} />
                   </FormControl>
@@ -243,3 +243,5 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
 
   return <div className="max-w-lg">{formContent}</div>;
 }
+
+    

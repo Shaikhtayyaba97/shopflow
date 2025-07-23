@@ -113,13 +113,27 @@ export function BillingClient() {
         toast({ variant: 'destructive', title: 'Out of Stock', description: `${product.name} is currently out of stock.`});
         return;
     }
-    setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
-      if (existingItem) {
-        if(existingItem.quantity >= product.quantity) {
-            toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only ${product.quantity} of ${product.name} available.`});
-            return prevCart;
+
+    const existingItem = cart.find((item) => item.id === product.id);
+
+    if (existingItem) {
+        if (existingItem.quantity >= product.quantity) {
+             if (product.quantity === 1) {
+                toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only 1 item left in stock`});
+             } else {
+                toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `You can't add more than the available stock of ${product.quantity}`});
+             }
+            return;
         }
+    } else {
+        if (1 > product.quantity) {
+            toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `You can't add more than the available stock of ${product.quantity}`});
+            return;
+        }
+    }
+
+    setCart((prevCart) => {
+      if (existingItem) {
         return prevCart.map((item) =>
           item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -132,20 +146,30 @@ export function BillingClient() {
   };
 
   const updateQuantity = (productId: string, newQuantity: number) => {
-     const productInCart = cart.find(p => p.id === productId)!;
+    const productInCart = cart.find(p => p.id === productId);
+
+    if (!productInCart) return;
 
     if (newQuantity < 1) {
         removeFromCart(productId);
         return;
     }
     
-    if (newQuantity > productInCart.quantity) {
-        toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only ${productInCart.quantity} of ${productInCart.name} available.`});
+    // This uses the original product quantity from when it was added to the cart
+    const originalProduct = searchResults.find(p => p.id === productId) || productInCart;
+
+    if (newQuantity > originalProduct.quantity) {
+        if (originalProduct.quantity === 1) {
+            toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only 1 item left in stock`});
+        } else {
+            toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `You can't add more than the available stock of ${originalProduct.quantity}`});
+        }
         return;
     }
 
     setCart(cart.map(item => item.id === productId ? { ...item, quantity: newQuantity } : item ));
   }
+
 
   const removeFromCart = (productId: string) => {
     setCart(cart.filter(item => item.id !== productId));
@@ -265,7 +289,7 @@ export function BillingClient() {
                         }
                     </span>
                 </div>
-                <span className="text-muted-foreground">${product.sellingPrice.toFixed(2)}</span>
+                <span className="text-muted-foreground">{product.sellingPrice.toFixed(2)}</span>
               </div>
             ))}
           </div>
@@ -298,8 +322,8 @@ export function BillingClient() {
                                     <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantity + 1)} disabled={isCheckingOut}><Plus className="h-4 w-4" /></Button>
                                 </div>
                             </TableCell>
-                            <TableCell className="text-right">${item.sellingPrice.toFixed(2)}</TableCell>
-                            <TableCell className="text-right">${(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{item.sellingPrice.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
                             <TableCell className="text-right">
                                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeFromCart(item.id)} disabled={isCheckingOut}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                             </TableCell>
@@ -310,7 +334,7 @@ export function BillingClient() {
         </div>
         {cart.length > 0 && (
             <div className="flex justify-between items-center pt-4 border-t">
-                <div className="text-2xl font-bold">Total: ${totalAmount.toFixed(2)}</div>
+                <div className="text-2xl font-bold">Total: {totalAmount.toFixed(2)}</div>
                 <Button size="lg" onClick={handleCheckout} disabled={isCheckingOut || cart.length === 0}>
                     {isCheckingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Checkout
@@ -321,3 +345,5 @@ export function BillingClient() {
     </div>
   );
 }
+
+    

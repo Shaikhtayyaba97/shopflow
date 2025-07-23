@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useMemo } from 'react';
@@ -122,11 +123,11 @@ export function ProfitReportClient() {
                     <div className="grid gap-4 md:grid-cols-2">
                         <Card>
                             <CardHeader><CardTitle>Total Revenue</CardTitle><CardDescription>Total sales in the selected period.</CardDescription></CardHeader>
-                            <CardContent><p className="text-2xl font-bold">${totalRevenue.toFixed(2)}</p></CardContent>
+                            <CardContent><p className="text-2xl font-bold">{totalRevenue.toFixed(2)}</p></CardContent>
                         </Card>
                         <Card>
                             <CardHeader><CardTitle>Total Profit</CardTitle><CardDescription>Net profit in the selected period.</CardDescription></CardHeader>
-                            <CardContent><p className="text-2xl font-bold text-green-600">${totalProfit.toFixed(2)}</p></CardContent>
+                            <CardContent><p className="text-2xl font-bold text-green-600">{totalProfit.toFixed(2)}</p></CardContent>
                         </Card>
                     </div>
 
@@ -139,7 +140,7 @@ export function ProfitReportClient() {
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData}>
                                         <XAxis dataKey="date" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                                        <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
                                         <Tooltip
                                           contentStyle={{
                                             backgroundColor: 'hsl(var(--card))',
@@ -165,3 +166,5 @@ export function ProfitReportClient() {
         </div>
     );
 }
+
+    

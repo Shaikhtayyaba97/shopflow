@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, onSnapshot, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product } from '@/types';
@@ -126,8 +126,8 @@ export function ProductsList() {
                     <TableRow key={product.id}>
                         <TableCell className="font-medium">{product.name}</TableCell>
                         <TableCell>{product.barcode || 'N/A'}</TableCell>
-                        {isAdmin && <TableCell>${product.purchasePrice?.toFixed(2) ?? '0.00'}</TableCell>}
-                        <TableCell>${product.sellingPrice?.toFixed(2) ?? 'N/A'}</TableCell>
+                        {isAdmin && <TableCell>{product.purchasePrice?.toFixed(2) ?? '0.00'}</TableCell>}
+                        <TableCell>{product.sellingPrice?.toFixed(2) ?? 'N/A'}</TableCell>
                         <TableCell>
                             {product.quantity > 0 ? (
                                 product.quantity
@@ -184,3 +184,5 @@ export function ProductsList() {
         </>
     );
 }
+
+    
