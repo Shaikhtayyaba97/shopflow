@@ -11,13 +11,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, ScanLine } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
-import { BarcodeScanner } from '../billing/BarcodeScanner';
+import { Loader2 } from 'lucide-react';
+import { DialogFooter, DialogClose } from '@/components/ui/dialog';
 import type { Product } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { recalculateProfitForProduct } from '@/services/recalculateProfit';
-import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 
 // Schema for admins
@@ -49,13 +47,9 @@ interface ProductFormProps {
 
 export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, isEditMode = false }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { toast } = useToast();
   const { userProfile } = useAuth();
   const isAdmin = userProfile?.role === 'admin';
-  const videoRef = useRef<HTMLVideoElement>(null);
-
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(isAdmin ? adminFormSchema : shopkeeperFormSchema),
@@ -87,37 +81,6 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
       });
     }
   }, [productToEdit, isEditMode, form]);
-
-  useEffect(() => {
-    const getCameraPermission = async () => {
-      if (isScannerOpen) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-        }
-      } else {
-        if (videoRef.current && videoRef.current.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach(track => track.stop());
-          videoRef.current.srcObject = null;
-        }
-      }
-    };
-    getCameraPermission();
-  }, [isScannerOpen]);
-
-
-  const handleBarcodeScanned = (barcode: string) => {
-    form.setValue('barcode', barcode);
-    setIsScannerOpen(false);
-    toast({ title: "Barcode Scanned", description: barcode });
-  };
 
   async function onSubmit(values: ProductFormValues) {
     setLoading(true);
@@ -203,30 +166,6 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
                 <FormControl>
                   <Input placeholder="Scan or enter barcode" {...field} />
                 </FormControl>
-                <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
-                    <DialogTrigger asChild>
-                        <Button variant="outline" size="icon" type="button">
-                            <ScanLine className="h-5 w-5" />
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Scan Barcode</DialogTitle>
-                        </DialogHeader>
-                        <div>
-                          <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
-                          {isScannerOpen && hasCameraPermission === false && (
-                              <Alert variant="destructive" className="mt-4">
-                                  <AlertTitle>Camera Access Required</AlertTitle>
-                                  <AlertDescription>
-                                      Please allow camera access in your browser to use this feature.
-                                  </AlertDescription>
-                              </Alert>
-                          )}
-                          {isScannerOpen && hasCameraPermission === true && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />}
-                        </div>
-                    </DialogContent>
-                </Dialog>
               </div>
               <FormMessage />
             </FormItem>

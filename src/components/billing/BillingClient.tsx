@@ -10,9 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { BarcodeScanner } from './BarcodeScanner';
-import { Search, ScanLine, Loader2, Plus, Minus, Trash2, CalendarClock, Printer } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Search, Loader2, Plus, Minus, Trash2, CalendarClock, Printer } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -39,14 +37,11 @@ export function BillingClient() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [todaysSales, setTodaysSales] = useState<Sale[]>([]);
   const [loadingTodaysSales, setLoadingTodaysSales] = useState(true);
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const receiptRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
 
 
@@ -115,9 +110,13 @@ export function BillingClient() {
 
   useEffect(() => {
     if (debouncedSearchTerm) {
-      // Logic to decide which search to run. If it's all digits, it could be a barcode.
-      // But for simplicity, we rely on name search for typing and explicit barcode search for scanning.
-      handleNameSearch(debouncedSearchTerm);
+      if (/^\d+$/.test(debouncedSearchTerm)) {
+          // If the search term is numeric, it's likely a barcode.
+          // We can choose to trigger barcode search directly here, but
+          // the "Enter" key press is a more definitive action from a hardware scanner.
+      } else {
+          handleNameSearch(debouncedSearchTerm);
+      }
     } else {
       setSearchResults([]);
     }
@@ -127,36 +126,6 @@ export function BillingClient() {
     searchInputRef.current?.focus();
   }, []);
 
-
-  useEffect(() => {
-    const getCameraPermission = async () => {
-      if (isScannerOpen) {
-        try {
-           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-          setHasCameraPermission(true);
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-          }
-        } catch (error) {
-          console.error('Error accessing camera:', error);
-          setHasCameraPermission(false);
-          toast({
-            variant: 'destructive',
-            title: 'Camera Access Denied',
-            description: 'Please enable camera permissions in your browser settings to use the scanner.',
-          });
-        }
-      } else {
-        if (videoRef.current && videoRef.current.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach(track => track.stop());
-          videoRef.current.srcObject = null;
-        }
-      }
-    };
-    getCameraPermission();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isScannerOpen]);
 
     useEffect(() => {
         setLoadingTodaysSales(true);
@@ -185,7 +154,8 @@ export function BillingClient() {
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && searchTerm) {
       event.preventDefault();
-      // Assume enter is for barcode search if it's all digits
+      // External scanners often send an "Enter" keystroke after the barcode.
+      // We assume if it's all digits, it's a barcode scan.
       if (/^\d+$/.test(searchTerm)) {
           handleBarcodeSearch(searchTerm);
       } else {
@@ -193,11 +163,6 @@ export function BillingClient() {
       }
     }
   };
-  
-  const handleBarcodeScanned = useCallback((barcode: string) => {
-    setIsScannerOpen(false);
-    handleBarcodeSearch(barcode);
-  }, [handleBarcodeSearch]);
 
   const addToCart = (product: Product) => {
     if (product.quantity <= 0) {
@@ -353,7 +318,7 @@ export function BillingClient() {
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                       <Input
                           ref={searchInputRef}
-                          placeholder="Search by name or scan a barcode..."
+                          placeholder="Scan barcode or search by name..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           onKeyDown={handleKeyDown}
@@ -361,32 +326,6 @@ export function BillingClient() {
                           disabled={isCheckingOut}
                       />
                   </div>
-                  <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
-                      <DialogTrigger asChild>
-                          <Button variant="outline" size="icon" disabled={isCheckingOut}>
-                              <ScanLine className="h-5 w-5" />
-                          </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                          <DialogHeader>
-                              <DialogTitle>Scan Barcode</DialogTitle>
-                          </DialogHeader>
-                          
-                          <div>
-                              <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
-                              {isScannerOpen && hasCameraPermission === false && (
-                                  <Alert variant="destructive" className="mt-4">
-                                      <AlertTitle>Camera Access Required</AlertTitle>
-                                      <AlertDescription>
-                                          Please allow camera access in your browser to use this feature.
-                                      </AlertDescription>
-                                  </Alert>
-                              )}
-                              {isScannerOpen && hasCameraPermission === true && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />}
-                          </div>
-                          
-                      </DialogContent>
-                  </Dialog>
               </div>
 
               {isSearching && <Loader2 className="animate-spin mx-auto mt-4" />}
