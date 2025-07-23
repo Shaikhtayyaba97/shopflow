@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { BarcodeScanner } from './BarcodeScanner';
-import { Search, ScanLine, Loader2, Plus, Minus, Trash2, CalendarClock } from 'lucide-react';
+import { Search, ScanLine, Loader2, Plus, Minus, Trash2, CalendarClock, Printer } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
@@ -47,6 +47,8 @@ export function BillingClient() {
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const receiptRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
+
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
@@ -317,6 +319,18 @@ export function BillingClient() {
     }
   }
 
+  const handlePrint = (saleId: string) => {
+    const receiptElement = receiptRefs.current.get(saleId);
+    if (receiptElement) {
+        const parent = receiptElement.parentElement;
+        if (parent) {
+            parent.classList.add('printable-area');
+            window.print();
+            parent.classList.remove('printable-area');
+        }
+    }
+  };
+
   const { todaysTotalRevenue, todaysTotalItems } = todaysSales.reduce((acc, sale) => {
         sale.items.forEach(item => {
             if (!item.returned) {
@@ -472,37 +486,44 @@ export function BillingClient() {
                               <p className="text-center text-muted-foreground py-8">No sales yet today.</p>
                            ) : (
                                todaysSales.map(sale => (
-                                <div key={sale.id} className="border rounded-lg p-4">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <div>
-                                            <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {format(sale.createdAt.toDate(), 'p')} by <span className='capitalize'>{sale.createdByRole}</span>
-                                            </p>
+                                <div key={sale.id} >
+                                    <div className="border rounded-lg p-4" ref={(el) => receiptRefs.current.set(sale.id, el)}>
+                                        <div className="flex justify-between items-center mb-2">
+                                            <div>
+                                                <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {format(sale.createdAt.toDate(), 'p')} by <span className='capitalize'>{sale.createdByRole}</span>
+                                                </p>
+                                            </div>
+                                             <div className="flex items-center gap-2">
+                                                <Badge variant="outline">Total: {sale.totalAmount.toFixed(2)}</Badge>
+                                                <Button size="icon" variant="ghost" onClick={() => handlePrint(sale.id)} className="no-print">
+                                                  <Printer className="h-4 w-4" />
+                                                </Button>
+                                            </div>
                                         </div>
-                                        <Badge variant="outline">Total: {sale.totalAmount.toFixed(2)}</Badge>
-                                    </div>
-                                    <Separator />
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Item</TableHead>
-                                                <TableHead>Qty</TableHead>
-                                                <TableHead className="text-right">Price</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {sale.items.map((item, index) => (
-                                                <TableRow key={index} className={item.returned ? 'bg-muted/50' : ''}>
-                                                    <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
-                                                    <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
-                                                    <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
-                                                        {(item.sellingPrice * item.quantity).toFixed(2)}
-                                                    </TableCell>
+                                        <Separator />
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Item</TableHead>
+                                                    <TableHead>Qty</TableHead>
+                                                    <TableHead className="text-right">Price</TableHead>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {sale.items.map((item, index) => (
+                                                    <TableRow key={index} className={item.returned ? 'bg-muted/50' : ''}>
+                                                        <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
+                                                        <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
+                                                        <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
+                                                            {(item.sellingPrice * item.quantity).toFixed(2)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
                                 </div>
                                ))
                            )}
