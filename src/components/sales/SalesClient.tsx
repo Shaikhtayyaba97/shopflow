@@ -75,7 +75,8 @@ export function SalesClient() {
                 toast({
                     variant: 'destructive',
                     title: 'Database Index Missing',
-                    description: 'A Firestore index is required for this query. Please check the browser console for a link to create it.',
+                    description: 'A Firestore index is required for this query. Please check the browser console for a link to create it automatically.',
+                    duration: 15000,
                 });
                  console.error("Firestore Index Error: ", error.message);
             } else {
@@ -91,9 +92,11 @@ export function SalesClient() {
     };
     
     useEffect(() => {
-        fetchSales();
+        if(userProfile) {
+            fetchSales();
+        }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [userProfile]);
 
     const totals = sales.reduce((acc, sale) => {
         acc.revenue += sale.totalAmount;
