@@ -132,8 +132,8 @@ export function BillingClient() {
 
 
   useEffect(() => {
-    if (isScannerOpen) {
-      const getCameraPermission = async () => {
+    const getCameraPermission = async () => {
+      if (isScannerOpen) {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
           setHasCameraPermission(true);
@@ -149,15 +149,15 @@ export function BillingClient() {
             description: 'Please enable camera permissions in your browser settings to use the scanner.',
           });
         }
-      };
-      getCameraPermission();
-    } else {
-         if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach(track => track.stop());
-            videoRef.current.srcObject = null;
+      } else {
+        if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
         }
-    }
+      }
+    };
+    getCameraPermission();
   }, [isScannerOpen, toast]);
 
     useEffect(() => {
@@ -380,7 +380,7 @@ export function BillingClient() {
                                       </AlertDescription>
                                   </Alert>
                               )}
-                              {isScannerOpen && hasCameraPermission && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />}
+                              {isScannerOpen && hasCameraPermission === true && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />}
                           </div>
                           
                       </DialogContent>
@@ -534,3 +534,5 @@ export function BillingClient() {
       </div>
   );
 }
+
+    

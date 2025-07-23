@@ -17,6 +17,7 @@ import { BarcodeScanner } from '../billing/BarcodeScanner';
 import type { Product } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { recalculateProfitForProduct } from '@/services/recalculateProfit';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 
 // Schema for admins
@@ -49,6 +50,7 @@ interface ProductFormProps {
 export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, isEditMode = false }: ProductFormProps) {
   const [loading, setLoading] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { toast } = useToast();
   const { userProfile } = useAuth();
   const isAdmin = userProfile?.role === 'admin';
@@ -85,6 +87,31 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
       });
     }
   }, [productToEdit, isEditMode, form]);
+
+  useEffect(() => {
+    const getCameraPermission = async () => {
+      if (isScannerOpen) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+        }
+      } else {
+        if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+        }
+      }
+    };
+    getCameraPermission();
+  }, [isScannerOpen]);
+
 
   const handleBarcodeScanned = (barcode: string) => {
     form.setValue('barcode', barcode);
@@ -186,12 +213,18 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
                         <DialogHeader>
                             <DialogTitle>Scan Barcode</DialogTitle>
                         </DialogHeader>
-                        {isScannerOpen && (
-                          <div>
-                            <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
-                            <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />
-                          </div>
-                        )}
+                        <div>
+                          <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                          {isScannerOpen && hasCameraPermission === false && (
+                              <Alert variant="destructive" className="mt-4">
+                                  <AlertTitle>Camera Access Required</AlertTitle>
+                                  <AlertDescription>
+                                      Please allow camera access in your browser to use this feature.
+                                  </AlertDescription>
+                              </Alert>
+                          )}
+                          {isScannerOpen && hasCameraPermission === true && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />}
+                        </div>
                     </DialogContent>
                 </Dialog>
               </div>
@@ -271,3 +304,5 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
 
   return <div className="max-w-lg">{formContent}</div>;
 }
+
+    
