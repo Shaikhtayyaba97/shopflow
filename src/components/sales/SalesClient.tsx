@@ -154,7 +154,6 @@ export function SalesClient() {
             toast({ title: 'Return successful', description: 'Stock has been updated.' });
             fetchSales(); // Refresh the sales data
         } catch (error: any) {
-            console.error("Error processing return:", error);
             toast({ variant: 'destructive', title: 'Return Error', description: error.message || 'Could not process the return.' });
         } finally {
             setIsReturning(null);
@@ -273,7 +272,10 @@ export function SalesClient() {
                                                     {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
                                                     <TableCell className="text-right">
                                                         {item.returned ? (
-                                                            <Badge variant={item.returnedByRole === 'admin' ? 'default' : 'destructive'} className={cn(item.returnedByRole === 'admin' && 'bg-green-600 text-white hover:bg-green-700')}>Returned</Badge>
+                                                            <Badge className={cn(
+                                                                "text-white",
+                                                                item.returnedByRole === 'admin' ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'
+                                                              )}>Returned</Badge>
                                                         ) : (
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild>
