@@ -12,10 +12,12 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, ScanLine } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { BarcodeScanner } from '../billing/BarcodeScanner';
 import type { Product } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { recalculateProfitForProduct } from '@/services/recalculateProfit';
+
 
 // Schema for admins
 const adminFormSchema = z.object({
@@ -95,6 +97,9 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
     try {
       if (isEditMode && productToEdit) {
         const productRef = doc(db, 'products', productToEdit.id);
+        const oldPurchasePrice = productToEdit.purchasePrice;
+        const newPurchasePrice = values.purchasePrice;
+
         const updateData: any = {
             name: values.name,
             barcode: values.barcode || '',
@@ -102,11 +107,25 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
             quantity: values.quantity,
         };
         if (isAdmin) {
-            updateData.purchasePrice = values.purchasePrice;
+            updateData.purchasePrice = newPurchasePrice;
         }
+
         await setDoc(productRef, updateData , { merge: true });
+        
         toast({ title: "Success", description: "Product updated successfully." });
         onProductUpdated?.();
+
+        // If purchase price changed, trigger recalculation
+        if (isAdmin && oldPurchasePrice !== newPurchasePrice) {
+            toast({ title: "Recalculating Profit", description: "Updating historical sales data. This may take a moment." });
+            try {
+                await recalculateProfitForProduct(productToEdit.id, newPurchasePrice);
+                toast({ title: "Recalculation Complete", description: "Profit reports are now up-to-date." });
+            } catch (recalcError) {
+                console.error("Profit recalculation failed:", recalcError);
+                toast({ variant: 'destructive', title: 'Recalculation Error', description: 'Could not update historical profit data.' });
+            }
+        }
       } else {
         await addDoc(collection(db, 'products'), {
           name: values.name,
