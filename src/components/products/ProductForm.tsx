@@ -99,6 +99,8 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
         const productRef = doc(db, 'products', productToEdit.id);
         const oldPurchasePrice = productToEdit.purchasePrice;
         const newPurchasePrice = values.purchasePrice;
+        const oldSellingPrice = productToEdit.sellingPrice;
+        const newSellingPrice = values.sellingPrice;
 
         const updateData: any = {
             name: values.name,
@@ -115,11 +117,11 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
         toast({ title: "Success", description: "Product updated successfully." });
         onProductUpdated?.();
 
-        // If purchase price changed, trigger recalculation
-        if (isAdmin && oldPurchasePrice !== newPurchasePrice) {
+        // If price changed, trigger recalculation
+        if (isAdmin && (oldPurchasePrice !== newPurchasePrice || oldSellingPrice !== newSellingPrice)) {
             toast({ title: "Recalculating Profit", description: "Updating historical sales data. This may take a moment." });
             try {
-                await recalculateProfitForProduct(productToEdit.id, newPurchasePrice);
+                await recalculateProfitForProduct(productToEdit.id, newPurchasePrice, newSellingPrice);
                 toast({ title: "Recalculation Complete", description: "Profit reports are now up-to-date." });
             } catch (recalcError) {
                 console.error("Profit recalculation failed:", recalcError);
