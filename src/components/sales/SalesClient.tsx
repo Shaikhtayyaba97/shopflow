@@ -77,14 +77,12 @@ export function SalesClient() {
                     description: 'A Firestore index is required for this query. Please check the browser console for a link to create it automatically.',
                     duration: 15000,
                 });
-                 console.error("Firestore Index Error: ", error.message);
             } else {
                 toast({
                     variant: 'destructive',
                     title: 'Error',
                     description: 'Could not fetch sales records.',
                 });
-                 console.error("Error fetching sales:", error);
             }
         } finally {
             setLoading(false);
