@@ -259,9 +259,10 @@ export function BillingClient() {
     }, { todaysTotalRevenue: 0, todaysTotalItems: 0 });
 
   return (
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="space-y-8">
+          {/* Top Section: New Bill */}
           <div className="space-y-4">
-              <h3 className="text-xl font-semibold">New Sale</h3>
+              <h3 className="text-xl font-semibold">New Bill / Customer</h3>
               <div className="flex gap-2">
                   <div className="relative w-full">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -326,7 +327,7 @@ export function BillingClient() {
               )}
 
               <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Cart</h3>
+                  <h3 className="text-lg font-semibold">Current Bill</h3>
                   <div className="border rounded-md">
                       <Table>
                           <TableHeader>
@@ -340,7 +341,7 @@ export function BillingClient() {
                           </TableHeader>
                           <TableBody>
                               {cart.length === 0 ? (
-                                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Cart is empty</TableCell></TableRow>
+                                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Cart is empty. Add products to start a new bill.</TableCell></TableRow>
                               ) : cart.map(item => (
                                   <TableRow key={item.id}>
                                       <TableCell>{item.name}</TableCell>
@@ -366,13 +367,14 @@ export function BillingClient() {
                           <div className="text-2xl font-bold">Total: {totalAmount}</div>
                           <Button size="lg" onClick={handleCheckout} disabled={isCheckingOut || cart.length === 0}>
                               {isCheckingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                              Checkout
+                              Finalize & Checkout
                           </Button>
                       </div>
                   )}
               </div>
           </div>
-
+          
+          {/* Bottom Section: Today's Sales Summary */}
           <div className="space-y-4">
               <Card>
                   <CardHeader>
@@ -380,20 +382,20 @@ export function BillingClient() {
                           <CalendarClock className="h-6 w-6" />
                           <CardTitle>Today's Sales Summary</CardTitle>
                       </div>
-                      <CardDescription>A live overview of sales made today.</CardDescription>
+                      <CardDescription>A live overview of all sales made today.</CardDescription>
                   </CardHeader>
                   <CardContent>
                       <div className="flex justify-between items-center mb-4 pb-4 border-b">
                           <div>
-                              <p className="text-sm text-muted-foreground">Total Items Sold</p>
+                              <p className="text-sm text-muted-foreground">Total Items Sold Today</p>
                               <p className="text-2xl font-bold">{todaysTotalItems}</p>
                           </div>
                           <div>
-                              <p className="text-sm text-muted-foreground">Total Revenue</p>
+                              <p className="text-sm text-muted-foreground">Total Revenue Today</p>
                               <p className="text-2xl font-bold">{todaysTotalRevenue.toFixed(2)}</p>
                           </div>
                       </div>
-                      <h4 className="font-semibold mb-2">Items Sold Today:</h4>
+                      <h4 className="font-semibold mb-2">All Items Sold Today:</h4>
                       <div className="max-h-[400px] overflow-y-auto">
                            {loadingTodaysSales ? (
                               <div className="flex justify-center items-center py-8">
@@ -408,6 +410,7 @@ export function BillingClient() {
                                         <TableHead>Time</TableHead>
                                         <TableHead>Item</TableHead>
                                         <TableHead>Qty</TableHead>
+                                        <TableHead>Sold By</TableHead>
                                         <TableHead className="text-right">Total</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -417,6 +420,7 @@ export function BillingClient() {
                                             <TableCell className={item.returned ? 'line-through' : ''}>{format(sale.createdAt.toDate(), 'p')}</TableCell>
                                             <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
                                             <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
+                                            <TableCell className={item.returned ? 'line-through' : ''}>{sale.createdByName?.split('@')[0]}</TableCell>
                                             <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
                                                 {(item.sellingPrice * item.quantity).toFixed(2)}
                                             </TableCell>
@@ -432,3 +436,4 @@ export function BillingClient() {
       </div>
   );
 }
+
