@@ -209,6 +209,9 @@ export function BillingClient() {
                 createdAt: serverTimestamp()
             };
 
+            const productUpdates = [];
+
+            // --- 1. READS FIRST ---
             for (const item of cart) {
                 const productRef = doc(db, 'products', item.id);
                 const productDoc = await transaction.get(productRef);
@@ -223,7 +226,7 @@ export function BillingClient() {
                 }
 
                 const newQuantity = currentQuantity - item.quantityInCart;
-                transaction.update(productRef, { quantity: newQuantity });
+                productUpdates.push({ ref: productRef, newQuantity });
                 
                 saleData.items.push({
                     productId: item.id,
@@ -232,6 +235,11 @@ export function BillingClient() {
                     sellingPrice: item.sellingPrice,
                     purchasePrice: item.purchasePrice || 0
                 });
+            }
+
+            // --- 2. WRITES LAST ---
+            for (const update of productUpdates) {
+                transaction.update(update.ref, { quantity: update.newQuantity });
             }
 
             const salesCollectionRef = collection(db, 'sales');
@@ -299,7 +307,7 @@ export function BillingClient() {
                                           </AlertDescription>
                                       </Alert>
                                   )}
-                                  <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />
+                                  {hasCameraPermission && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />}
                               </div>
                           )}
                       </DialogContent>
@@ -436,4 +444,3 @@ export function BillingClient() {
       </div>
   );
 }
-
