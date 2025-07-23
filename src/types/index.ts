@@ -27,6 +27,9 @@ export interface SaleItem {
     purchasePrice: number;
     sellingPrice: number;
     name: string;
+    returned?: boolean;
+    returnedBy?: string;
+    returnedAt?: Timestamp;
 }
 
 export interface Sale {

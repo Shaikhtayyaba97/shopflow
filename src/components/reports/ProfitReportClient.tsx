@@ -47,6 +47,7 @@ export function ProfitReportClient() {
     
     useEffect(() => {
         fetchSales();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const { totalProfit, totalRevenue, chartData } = useMemo(() => {
@@ -58,12 +59,21 @@ export function ProfitReportClient() {
             if (!acc[dateKey]) {
                 acc[dateKey] = { date: dateKey, revenue: 0, profit: 0 };
             }
-            const saleProfit = sale.items.reduce((itemProfit, item) => itemProfit + (item.sellingPrice - item.purchasePrice) * item.quantity, 0);
             
-            acc[dateKey].revenue += sale.totalAmount;
+            const saleProfit = sale.items.reduce((itemProfit, item) => {
+                if (item.returned) return itemProfit;
+                return itemProfit + (item.sellingPrice - item.purchasePrice) * item.quantity;
+            }, 0);
+            
+            const saleRevenue = sale.items.reduce((itemRevenue, item) => {
+                if(item.returned) return itemRevenue;
+                return itemRevenue + item.sellingPrice * item.quantity;
+            }, 0)
+
+            acc[dateKey].revenue += saleRevenue;
             acc[dateKey].profit += saleProfit;
             
-            revenue += sale.totalAmount;
+            revenue += saleRevenue;
             profit += saleProfit;
             
             return acc;
@@ -122,11 +132,11 @@ export function ProfitReportClient() {
                 <>
                     <div className="grid gap-4 md:grid-cols-2">
                         <Card>
-                            <CardHeader><CardTitle>Total Revenue</CardTitle><CardDescription>Total sales in the selected period.</CardDescription></CardHeader>
+                            <CardHeader><CardTitle>Total Revenue</CardTitle><CardDescription>Total sales in the selected period (returns excluded).</CardDescription></CardHeader>
                             <CardContent><p className="text-2xl font-bold">{totalRevenue.toFixed(2)}</p></CardContent>
                         </Card>
                         <Card>
-                            <CardHeader><CardTitle>Total Profit</CardTitle><CardDescription>Net profit in the selected period.</CardDescription></CardHeader>
+                            <CardHeader><CardTitle>Total Profit</CardTitle><CardDescription>Net profit in the selected period (returns excluded).</CardDescription></CardHeader>
                             <CardContent><p className="text-2xl font-bold text-green-600">{totalProfit.toFixed(2)}</p></CardContent>
                         </Card>
                     </div>
@@ -166,5 +176,3 @@ export function ProfitReportClient() {
         </div>
     );
 }
-
-    
