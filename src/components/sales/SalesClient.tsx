@@ -48,36 +48,47 @@ export function SalesClient() {
     const [salesByDate, setSalesByDate] = useState<GroupedSales>({});
     const [loading, setLoading] = useState(false);
     const [isReturning, setIsReturning] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<'single' | 'all'>('single');
     const { userProfile } = useAuth();
     const { toast } = useToast();
     const isAdmin = userProfile?.role === 'admin';
 
-    const fetchSales = async () => {
-        if (!userProfile || !date) {
+    const fetchSales = async (mode: 'single' | 'all') => {
+        if (!userProfile) return;
+        if (mode === 'single' && !date) {
             toast({ variant: 'destructive', title: 'No Date Selected', description: 'Please select a date for the report.' });
             return;
         }
+
         setLoading(true);
+        setViewMode(mode);
 
         try {
-            const startDate = startOfDay(date);
-            const endDate = endOfDay(date);
-
-            const q = query(
-                collection(db, 'sales'),
-                where('createdAt', '>=', Timestamp.fromDate(startDate)),
-                where('createdAt', '<=', Timestamp.fromDate(endDate)),
-                orderBy('createdAt', 'desc')
-            );
+            let q;
+            if (mode === 'single' && date) {
+                const startDate = startOfDay(date);
+                const endDate = endOfDay(date);
+                q = query(
+                    collection(db, 'sales'),
+                    where('createdAt', '>=', Timestamp.fromDate(startDate)),
+                    where('createdAt', '<=', Timestamp.fromDate(endDate)),
+                    orderBy('createdAt', 'desc')
+                );
+            } else { // mode === 'all'
+                q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+            }
             
             const querySnapshot = await getDocs(q);
 
             const groupedSales: GroupedSales = {};
-            const dateKey = format(date, 'yyyy-MM-dd');
-            groupedSales[dateKey] = [];
 
             querySnapshot.docs.forEach(docSnapshot => {
                 const sale = { id: docSnapshot.id, ...docSnapshot.data() } as Sale;
+                const dateKey = format(sale.createdAt.toDate(), 'yyyy-MM-dd');
+                
+                if (!groupedSales[dateKey]) {
+                    groupedSales[dateKey] = [];
+                }
                 
                 let totalProfit = 0;
                 const enrichedItems = sale.items.map((item, itemIndex) => {
@@ -115,7 +126,7 @@ export function SalesClient() {
     
     useEffect(() => {
         if(userProfile) {
-            fetchSales();
+            fetchSales('single');
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userProfile]);
@@ -165,7 +176,7 @@ export function SalesClient() {
             });
 
             toast({ title: 'Return successful', description: 'Stock has been updated.' });
-            fetchSales(); 
+            fetchSales(viewMode); 
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Return Error', description: error.message || 'Could not process the return.' });
         } finally {
@@ -202,9 +213,13 @@ export function SalesClient() {
                         />
                     </PopoverContent>
                 </Popover>
-                <Button onClick={fetchSales} disabled={loading} className="w-full sm:w-auto">
-                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button onClick={() => fetchSales('single')} disabled={loading} className="w-full sm:w-auto">
+                    {loading && viewMode === 'single' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Generate Report
+                </Button>
+                <Button onClick={() => fetchSales('all')} disabled={loading} className="w-full sm:w-auto" variant="secondary">
+                     {loading && viewMode === 'all' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    All Sales
                 </Button>
             </div>
 
