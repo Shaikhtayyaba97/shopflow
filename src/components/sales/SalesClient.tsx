@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, Timestamp, orderBy, runTransaction, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, Timestamp, orderBy, runTransaction, doc, onSnapshot, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Sale, SaleItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +10,7 @@ import { format, startOfDay, endOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, Loader2, Undo2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, Undo2, Edit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -27,6 +27,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { SaleItemEditForm } from './SaleItemEditForm';
 
 interface EnrichedSaleItem extends SaleItem {
   profit: number;
@@ -52,6 +54,8 @@ export function SalesClient() {
     const { userProfile } = useAuth();
     const { toast } = useToast();
     const isAdmin = userProfile?.role === 'admin';
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedSaleItem, setSelectedSaleItem] = useState<{sale: EnrichedSale; item: EnrichedSaleItem} | null>(null);
 
     const fetchSales = (mode: 'single' | 'all') => {
         if (!userProfile) return;
@@ -184,6 +188,42 @@ export function SalesClient() {
             setIsReturning(null);
         }
     }
+
+    const handleEdit = (sale: EnrichedSale, item: EnrichedSaleItem) => {
+        setSelectedSaleItem({ sale, item });
+        setIsEditModalOpen(true);
+    };
+
+    const handleItemUpdate = async (saleId: string, itemIndex: number, updatedPrices: { purchasePrice: number, sellingPrice: number }) => {
+        try {
+            const saleRef = doc(db, 'sales', saleId);
+            
+            await runTransaction(db, async (transaction) => {
+                const saleDoc = await transaction.get(saleRef);
+                if (!saleDoc.exists()) {
+                    throw new Error("Sale not found.");
+                }
+
+                const saleData = saleDoc.data() as Sale;
+                const newItems = [...saleData.items];
+                
+                if(newItems[itemIndex]) {
+                    newItems[itemIndex].purchasePrice = updatedPrices.purchasePrice;
+                    newItems[itemIndex].sellingPrice = updatedPrices.sellingPrice;
+                } else {
+                    throw new Error("Item index out of bounds.");
+                }
+                
+                transaction.update(saleRef, { items: newItems });
+            });
+            
+            toast({ title: 'Success', description: 'Sale item updated successfully.' });
+            setIsEditModalOpen(false);
+            setSelectedSaleItem(null);
+        } catch (error: any) {
+             toast({ variant: 'destructive', title: 'Update Error', description: error.message || 'Could not update the sale item.' });
+        }
+    };
     
     const sortedDateKeys = useMemo(() => {
       return Object.keys(salesByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
@@ -197,6 +237,7 @@ export function SalesClient() {
                         <Button
                             variant={"outline"}
                             className={cn("w-full sm:w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+                            disabled={viewMode === 'all'}
                         >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {date ? format(date, "PPP") : (
@@ -209,17 +250,14 @@ export function SalesClient() {
                             initialFocus
                             mode="single"
                             selected={date}
-                            onSelect={setDate}
+                            onSelect={(d) => { setDate(d); setViewMode('single'); }}
                             disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
                         />
                     </PopoverContent>
                 </Popover>
-                <Button onClick={() => setViewMode('single')} disabled={loading || viewMode === 'single'} className="w-full sm:w-auto">
-                    {loading && viewMode === 'single' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Generate Report for Date
-                </Button>
+                
                 <Button onClick={() => setViewMode('all')} disabled={loading || viewMode === 'all'} className="w-full sm:w-auto" variant="secondary">
-                     {loading && viewMode === 'all' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                     {loading && viewMode === 'all' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     All Sales
                 </Button>
             </div>
@@ -315,34 +353,43 @@ export function SalesClient() {
                                                                     <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
                                                                     {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
                                                                     <TableCell className="text-right">
-                                                                        {item.returned ? (
-                                                                            <Badge className={cn(
-                                                                                "text-white",
-                                                                                item.returnedByRole === 'admin' ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'
-                                                                            )}>Returned</Badge>
-                                                                        ) : (
-                                                                            <AlertDialog>
-                                                                                <AlertDialogTrigger asChild>
-                                                                                    <Button variant="ghost" size="icon" disabled={isReturning === `${item.saleId}-${item.itemIndex}`}>
-                                                                                        {isReturning === `${item.saleId}-${item.itemIndex}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
-                                                                                    </Button>
-                                                                                </AlertDialogTrigger>
-                                                                                <AlertDialogContent>
-                                                                                    <AlertDialogHeader>
-                                                                                        <AlertDialogTitle>Return Item?</AlertDialogTitle>
-                                                                                        <AlertDialogDescription>
-                                                                                            Are you sure you want to mark this item as returned? This will add {item.quantity} back to the stock for {item.name}. This action cannot be undone.
-                                                                                        </AlertDialogDescription>
-                                                                                    </AlertDialogHeader>
-                                                                                    <AlertDialogFooter>
-                                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                                        <AlertDialogAction onClick={() => handleReturn(item.saleId, item.itemIndex, item.productId, item.quantity)}>
-                                                                                            Confirm Return
-                                                                                        </AlertDialogAction>
-                                                                                    </AlertDialogFooter>
-                                                                                </AlertDialogContent>
-                                                                            </AlertDialog>
-                                                                        )}
+                                                                        <div className="flex justify-end items-center">
+                                                                            {item.returned ? (
+                                                                                <Badge className={cn(
+                                                                                    "text-white",
+                                                                                    item.returnedByRole === 'admin' ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'
+                                                                                )}>Returned</Badge>
+                                                                            ) : (
+                                                                                <>
+                                                                                 {isAdmin &&
+                                                                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(sale, item)}>
+                                                                                            <Edit className="h-4 w-4" />
+                                                                                        </Button>
+                                                                                    }
+                                                                                <AlertDialog>
+                                                                                    <AlertDialogTrigger asChild>
+                                                                                        <Button variant="ghost" size="icon" disabled={isReturning === `${item.saleId}-${item.itemIndex}`}>
+                                                                                            {isReturning === `${item.saleId}-${item.itemIndex}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
+                                                                                        </Button>
+                                                                                    </AlertDialogTrigger>
+                                                                                    <AlertDialogContent>
+                                                                                        <AlertDialogHeader>
+                                                                                            <AlertDialogTitle>Return Item?</AlertDialogTitle>
+                                                                                            <AlertDialogDescription>
+                                                                                                Are you sure you want to mark this item as returned? This will add {item.quantity} back to the stock for {item.name}. This action cannot be undone.
+                                                                                            </AlertDialogDescription>
+                                                                                        </AlertDialogHeader>
+                                                                                        <AlertDialogFooter>
+                                                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                                            <AlertDialogAction onClick={() => handleReturn(item.saleId, item.itemIndex, item.productId, item.quantity)}>
+                                                                                                Confirm Return
+                                                                                            </AlertDialogAction>
+                                                                                        </AlertDialogFooter>
+                                                                                    </AlertDialogContent>
+                                                                                </AlertDialog>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
                                                                     </TableCell>
                                                                 </TableRow>
                                                             ))
@@ -357,6 +404,20 @@ export function SalesClient() {
                         )
                     })}
                 </div>
+            )}
+             {selectedSaleItem && (
+                <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Edit Sale Item: {selectedSaleItem.item.name}</DialogTitle>
+                        </DialogHeader>
+                        <SaleItemEditForm
+                            saleItem={selectedSaleItem.item}
+                            onUpdate={(updatedPrices) => handleItemUpdate(selectedSaleItem.sale.id, selectedSaleItem.item.itemIndex, updatedPrices)}
+                            onCancel={() => setIsEditModalOpen(false)}
+                        />
+                    </DialogContent>
+                </Dialog>
             )}
         </div>
     );
