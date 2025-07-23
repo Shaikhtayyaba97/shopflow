@@ -146,28 +146,29 @@ export function BillingClient() {
   };
 
   const updateQuantity = (productId: string, newQuantity: number) => {
-    const productInCart = cart.find(p => p.id === productId);
-
-    if (!productInCart) return;
+    const itemInCart = cart.find(item => item.id === productId);
+    if (!itemInCart) return;
 
     if (newQuantity < 1) {
-        removeFromCart(productId);
-        return;
-    }
-    
-    // This uses the original product quantity from when it was added to the cart
-    const originalProduct = searchResults.find(p => p.id === productId) || productInCart;
-
-    if (newQuantity > originalProduct.quantity) {
-        if (originalProduct.quantity === 1) {
-            toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only 1 item left in stock`});
-        } else {
-            toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `You can't add more than the available stock of ${originalProduct.quantity}`});
-        }
-        return;
+      removeFromCart(productId);
+      return;
     }
 
-    setCart(cart.map(item => item.id === productId ? { ...item, quantity: newQuantity } : item ));
+    // The item in the cart holds the original total quantity.
+    if (newQuantity > itemInCart.quantity) {
+      if (itemInCart.quantity === 1) {
+        toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only 1 item left in stock`});
+      } else {
+        toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `You can't add more than the available stock of ${itemInCart.quantity}`});
+      }
+      return;
+    }
+
+    setCart(cart.map(item =>
+      item.id === productId
+        ? { ...item, quantity: newQuantity }
+        : item
+    ));
   }
 
 
