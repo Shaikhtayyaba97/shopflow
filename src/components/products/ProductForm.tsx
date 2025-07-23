@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -50,6 +50,8 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
   const { toast } = useToast();
   const { userProfile } = useAuth();
   const isAdmin = userProfile?.role === 'admin';
+  const videoRef = useRef<HTMLVideoElement>(null);
+
 
   const form = useForm<ProductFormValues>({
     resolver: zodResolver(isAdmin ? adminFormSchema : shopkeeperFormSchema),
@@ -163,7 +165,12 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
                         <DialogHeader>
                             <DialogTitle>Scan Barcode</DialogTitle>
                         </DialogHeader>
-                        {isScannerOpen && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={useRef(null)} />}
+                        {isScannerOpen && (
+                          <div>
+                            <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                            <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />
+                          </div>
+                        )}
                     </DialogContent>
                 </Dialog>
               </div>
@@ -243,5 +250,3 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
 
   return <div className="max-w-lg">{formContent}</div>;
 }
-
-    
