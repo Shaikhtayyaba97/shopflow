@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, where, getDocs, Timestamp, orderBy, runTransaction, doc } from 'firebase/firestore';
+import { collection, query, where, Timestamp, orderBy, runTransaction, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Sale, SaleItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,7 +53,7 @@ export function SalesClient() {
     const { toast } = useToast();
     const isAdmin = userProfile?.role === 'admin';
 
-    const fetchSales = async (mode: 'single' | 'all') => {
+    const fetchSales = (mode: 'single' | 'all') => {
         if (!userProfile) return;
         if (mode === 'single' && !date) {
             toast({ variant: 'destructive', title: 'No Date Selected', description: 'Please select a date for the report.' });
@@ -63,23 +63,21 @@ export function SalesClient() {
         setLoading(true);
         setViewMode(mode);
 
-        try {
-            let q;
-            if (mode === 'single' && date) {
-                const startDate = startOfDay(date);
-                const endDate = endOfDay(date);
-                q = query(
-                    collection(db, 'sales'),
-                    where('createdAt', '>=', Timestamp.fromDate(startDate)),
-                    where('createdAt', '<=', Timestamp.fromDate(endDate)),
-                    orderBy('createdAt', 'desc')
-                );
-            } else { // mode === 'all'
-                q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
-            }
-            
-            const querySnapshot = await getDocs(q);
+        let q;
+        if (mode === 'single' && date) {
+            const startDate = startOfDay(date);
+            const endDate = endOfDay(date);
+            q = query(
+                collection(db, 'sales'),
+                where('createdAt', '>=', Timestamp.fromDate(startDate)),
+                where('createdAt', '<=', Timestamp.fromDate(endDate)),
+                orderBy('createdAt', 'desc')
+            );
+        } else { // mode === 'all'
+            q = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
+        }
 
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const groupedSales: GroupedSales = {};
 
             querySnapshot.docs.forEach(docSnapshot => {
@@ -103,8 +101,9 @@ export function SalesClient() {
             });
             
             setSalesByDate(groupedSales);
+            setLoading(false);
 
-        } catch (error: any) {
+        }, (error: any) => {
              if (error.code === 'failed-precondition') {
                 toast({
                     variant: 'destructive',
@@ -119,17 +118,19 @@ export function SalesClient() {
                     description: 'Could not fetch sales records.',
                 });
             }
-        } finally {
             setLoading(false);
-        }
+        });
+
+        return unsubscribe; // Return the unsubscribe function to be called on cleanup
     };
     
     useEffect(() => {
         if(userProfile) {
-            fetchSales('single');
+            const unsubscribe = fetchSales(viewMode);
+            return () => unsubscribe?.();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userProfile]);
+    }, [userProfile, date, viewMode]);
 
 
     const handleReturn = async (saleId: string, itemIndex: number, productId: string, quantity: number) => {
@@ -176,7 +177,7 @@ export function SalesClient() {
             });
 
             toast({ title: 'Return successful', description: 'Stock has been updated.' });
-            fetchSales(viewMode); 
+            // No need to call fetchSales here, onSnapshot will do it.
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Return Error', description: error.message || 'Could not process the return.' });
         } finally {
@@ -213,11 +214,11 @@ export function SalesClient() {
                         />
                     </PopoverContent>
                 </Popover>
-                <Button onClick={() => fetchSales('single')} disabled={loading} className="w-full sm:w-auto">
+                <Button onClick={() => setViewMode('single')} disabled={loading || viewMode === 'single'} className="w-full sm:w-auto">
                     {loading && viewMode === 'single' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Generate Report
+                    Generate Report for Date
                 </Button>
-                <Button onClick={() => fetchSales('all')} disabled={loading} className="w-full sm:w-auto" variant="secondary">
+                <Button onClick={() => setViewMode('all')} disabled={loading || viewMode === 'all'} className="w-full sm:w-auto" variant="secondary">
                      {loading && viewMode === 'all' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     All Sales
                 </Button>
@@ -309,7 +310,7 @@ export function SalesClient() {
                                                                     </TableCell>
                                                                     <TableCell className={cn(item.returned && "line-through")}>{item.name}</TableCell>
                                                                     <TableCell className={cn(item.returned && "line-through")}>{item.quantity}</TableCell>
-                                                                    {isAdmin && <TableCell className={cn("text-right", item.returned && "line-through")}>{item.purchasePrice.toFixed(2)}</TableCell>}
+                                                                    {isAdmin && <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.purchasePrice ?? 0).toFixed(2)}</TableCell>}
                                                                     <TableCell className={cn("text-right", item.returned && "line-through")}>{item.sellingPrice.toFixed(2)}</TableCell>
                                                                     <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
                                                                     {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
@@ -359,5 +360,4 @@ export function SalesClient() {
             )}
         </div>
     );
-
-    
+}
