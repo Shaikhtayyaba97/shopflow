@@ -428,7 +428,7 @@ export function BillingClient() {
                                             <TableCell className={item.returned ? 'line-through' : ''}>{format(sale.createdAt.toDate(), 'p')}</TableCell>
                                             <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
                                             <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
-                                            <TableCell className={item.returned ? 'line-through' : ''}>{sale.createdByName?.split('@')[0]}</TableCell>
+                                            <TableCell className={`capitalize ${item.returned ? 'line-through' : ''}`}>{sale.createdByRole}</TableCell>
                                             <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
                                                 {(item.sellingPrice * item.quantity).toFixed(2)}
                                             </TableCell>

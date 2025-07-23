@@ -115,26 +115,26 @@ export function SalesClient() {
         setIsReturning(returnIdentifier);
         
         try {
-             await runTransaction(db, async (transaction) => {
+            await runTransaction(db, async (transaction) => {
                 const saleRef = doc(db, 'sales', saleId);
                 const productRef = doc(db, 'products', productId);
-
-                // --- READS FIRST ---
+    
+                // --- 1. READS FIRST ---
                 const saleDoc = await transaction.get(saleRef);
                 const productDoc = await transaction.get(productRef);
-
+    
                 if (!saleDoc.exists()) {
                     throw new Error("Sale not found.");
                 }
-                
+    
                 const saleData = saleDoc.data() as Sale;
                 const newItems = [...saleData.items];
-                
+    
                 if (newItems[itemIndex].returned) {
                     throw new Error("Item already returned.");
                 }
-
-                // --- WRITES LAST ---
+    
+                // --- 2. WRITES LAST ---
                 newItems[itemIndex] = {
                     ...newItems[itemIndex],
                     returned: true,
@@ -142,9 +142,9 @@ export function SalesClient() {
                     returnedBy: userProfile.email || userProfile.uid,
                     returnedByRole: userProfile.role,
                 };
-                
+    
                 transaction.update(saleRef, { items: newItems });
-                
+    
                 if (productDoc.exists()) {
                     const newQuantity = (productDoc.data().quantity || 0) + quantity;
                     transaction.update(productRef, { quantity: newQuantity });
@@ -261,12 +261,9 @@ export function SalesClient() {
                                             sale.items.map((item, index) => (
                                                 <TableRow key={`${sale.id}-${item.productId}-${index}`} className={cn(item.returned && "bg-muted/50")}>
                                                     <TableCell className={cn(item.returned && "line-through")}>{index === 0 ? format(sale.createdAt.toDate(), 'PP p') : ''}</TableCell>
-                                                    <TableCell className={cn(item.returned && "line-through")}>
+                                                    <TableCell className={cn("capitalize", item.returned && "line-through")}>
                                                       {index === 0 ? (
-                                                        <div>
-                                                          <p>{sale.createdByName?.split('@')[0]}</p>
                                                           <Badge variant="outline">{sale.createdByRole}</Badge>
-                                                        </div>
                                                       ) : ''}
                                                     </TableCell>
                                                     <TableCell className={cn(item.returned && "line-through")}>{item.name}</TableCell>
