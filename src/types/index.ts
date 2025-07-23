@@ -29,6 +29,7 @@ export interface SaleItem {
     name: string;
     returned?: boolean;
     returnedBy?: string;
+    returnedByRole?: 'admin' | 'shopkeeper';
     returnedAt?: Timestamp;
 }
 

@@ -59,18 +59,13 @@ export function SalesClient() {
         const toDate = date.to ?? date.from;
 
         try {
-            const constraints: QueryConstraint[] = [
+            const q = query(
+                collection(db, 'sales'),
                 where('createdAt', '>=', Timestamp.fromDate(startOfDay(date.from))),
                 where('createdAt', '<=', Timestamp.fromDate(endOfDay(toDate))),
                 orderBy('createdAt', 'desc')
-            ];
+            );
             
-            if(userProfile.role !== 'admin') {
-                constraints.unshift(where('createdBy', '==', userProfile.uid));
-            }
-
-
-            const q = query(collection(db, 'sales'), ...constraints);
             const querySnapshot = await getDocs(q);
             const salesData = querySnapshot.docs.map(docSnapshot => {
                 const sale = { id: docSnapshot.id, ...docSnapshot.data() } as Sale;
@@ -144,7 +139,8 @@ export function SalesClient() {
                     ...newItems[itemIndex],
                     returned: true,
                     returnedAt: Timestamp.fromDate(new Date()),
-                    returnedBy: userProfile.email || userProfile.uid
+                    returnedBy: userProfile.email || userProfile.uid,
+                    returnedByRole: userProfile.role,
                 };
                 
                 transaction.update(saleRef, { items: newItems });
@@ -277,7 +273,7 @@ export function SalesClient() {
                                                     {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
                                                     <TableCell className="text-right">
                                                         {item.returned ? (
-                                                            <Badge variant="destructive">Returned</Badge>
+                                                            <Badge variant={item.returnedByRole === 'admin' ? 'default' : 'destructive'} className={cn(item.returnedByRole === 'admin' && 'bg-green-600 hover:bg-green-700')}>Returned</Badge>
                                                         ) : (
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild>
