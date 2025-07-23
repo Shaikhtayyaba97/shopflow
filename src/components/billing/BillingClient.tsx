@@ -17,6 +17,7 @@ import { Badge } from '../ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { format, startOfDay, endOfDay } from 'date-fns';
+import { Separator } from '../ui/separator';
 
 // Debounce hook
 function useDebounce(value: string, delay: number) {
@@ -61,8 +62,8 @@ export function BillingClient() {
     // Updated to be case-insensitive by searching a range.
     const nameQuery = query(
       productsRef, 
-      where('name', '>=', term), 
-      where('name', '<=', term + '\uf8ff'),
+      where('name', '>=', term.toLowerCase()),
+      where('name', '<=', term.toLowerCase() + '\uf8ff'),
       limit(10) // Limit suggestions for performance
     );
 
@@ -71,15 +72,20 @@ export function BillingClient() {
         const products: Product[] = [];
         const productIds = new Set<string>();
 
+        let exactBarcodeMatch = false;
         barcodeSnapshot.forEach((doc) => {
             if(!productIds.has(doc.id)){
-                products.push({ id: doc.id, ...doc.data() } as Product);
+                const product = { id: doc.id, ...doc.data() } as Product;
+                products.push(product);
                 productIds.add(doc.id);
+                if (product.barcode === term) {
+                    exactBarcodeMatch = true;
+                }
             }
         });
 
         // If barcode scan adds an item, we are done.
-        if (products.length === 1 && products[0].barcode === term) {
+        if (exactBarcodeMatch) {
             addToCart(products[0]);
             setSearchTerm('');
             setSearchResults([]);
@@ -143,6 +149,12 @@ export function BillingClient() {
         }
       };
       getCameraPermission();
+    } else {
+         if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
     }
   }, [isScannerOpen, toast]);
 
@@ -171,7 +183,7 @@ export function BillingClient() {
     }, []);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' && searchTerm) {
       event.preventDefault();
       handleSearch(searchTerm);
     }
@@ -181,10 +193,6 @@ export function BillingClient() {
     setIsScannerOpen(false);
     setSearchTerm(barcode);
     handleSearch(barcode);
-     if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-    }
   };
 
   const addToCart = (product: Product) => {
@@ -347,20 +355,20 @@ export function BillingClient() {
                           <DialogHeader>
                               <DialogTitle>Scan Barcode</DialogTitle>
                           </DialogHeader>
-                          {isScannerOpen && (
-                              <div>
-                                  <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
-                                  {hasCameraPermission === false && (
-                                      <Alert variant="destructive" className="mt-4">
-                                          <AlertTitle>Camera Access Required</AlertTitle>
-                                          <AlertDescription>
-                                              Please allow camera access in your browser to use this feature.
-                                          </AlertDescription>
-                                      </Alert>
-                                  )}
-                                  {hasCameraPermission && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />}
-                              </div>
-                          )}
+                          
+                          <div>
+                              <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                              {isScannerOpen && hasCameraPermission === false && (
+                                  <Alert variant="destructive" className="mt-4">
+                                      <AlertTitle>Camera Access Required</AlertTitle>
+                                      <AlertDescription>
+                                          Please allow camera access in your browser to use this feature.
+                                      </AlertDescription>
+                                  </Alert>
+                              )}
+                              {isScannerOpen && hasCameraPermission && <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />}
+                          </div>
+                          
                       </DialogContent>
                   </Dialog>
               </div>
@@ -454,8 +462,8 @@ export function BillingClient() {
                               <p className="text-2xl font-bold">{todaysTotalRevenue.toFixed(2)}</p>
                           </div>
                       </div>
-                      <h4 className="font-semibold mb-2">All Items Sold Today:</h4>
-                      <div className="max-h-[400px] overflow-y-auto">
+                      <h4 className="font-semibold mb-2">Today's Receipts:</h4>
+                      <div className="max-h-[400px] overflow-y-auto space-y-4">
                            {loadingTodaysSales ? (
                               <div className="flex justify-center items-center py-8">
                                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -463,30 +471,40 @@ export function BillingClient() {
                            ) : todaysSales.length === 0 ? (
                               <p className="text-center text-muted-foreground py-8">No sales yet today.</p>
                            ) : (
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Time</TableHead>
-                                        <TableHead>Item</TableHead>
-                                        <TableHead>Qty</TableHead>
-                                        <TableHead>Sold By</TableHead>
-                                        <TableHead className="text-right">Total</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {todaysSales.flatMap(sale => sale.items.map((item, index) => (
-                                        <TableRow key={`${sale.id}-${index}`} className={item.returned ? 'bg-muted/50' : ''}>
-                                            <TableCell className={item.returned ? 'line-through' : ''}>{format(sale.createdAt.toDate(), 'p')}</TableCell>
-                                            <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
-                                            <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
-                                            <TableCell className={`capitalize ${item.returned ? 'line-through' : ''}`}>{sale.createdByRole}</TableCell>
-                                            <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
-                                                {(item.sellingPrice * item.quantity).toFixed(2)}
-                                            </TableCell>
-                                        </TableRow>
-                                    )))}
-                                </TableBody>
-                            </Table>
+                               todaysSales.map(sale => (
+                                <div key={sale.id} className="border rounded-lg p-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div>
+                                            <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {format(sale.createdAt.toDate(), 'p')} by <span className='capitalize'>{sale.createdByRole}</span>
+                                            </p>
+                                        </div>
+                                        <Badge variant="outline">Total: {sale.totalAmount.toFixed(2)}</Badge>
+                                    </div>
+                                    <Separator />
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Item</TableHead>
+                                                <TableHead>Qty</TableHead>
+                                                <TableHead className="text-right">Price</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {sale.items.map((item, index) => (
+                                                <TableRow key={index} className={item.returned ? 'bg-muted/50' : ''}>
+                                                    <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
+                                                    <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
+                                                    <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
+                                                        {(item.sellingPrice * item.quantity).toFixed(2)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                               ))
                            )}
                       </div>
                   </CardContent>
