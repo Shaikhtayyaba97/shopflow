@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, runTransaction, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product, CartItem } from '@/types';
@@ -12,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { BarcodeScanner } from './BarcodeScanner';
 import { Search, ScanLine, Loader2, Plus, Minus, Trash2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Badge } from '../ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 
 export function BillingClient() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,9 +23,35 @@ export function BillingClient() {
   const [isSearching, setIsSearching] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+
+  useEffect(() => {
+    if (isScannerOpen) {
+      const getCameraPermission = async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setHasCameraPermission(true);
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings to use the scanner.',
+          });
+        }
+      };
+      getCameraPermission();
+    }
+  }, [isScannerOpen, toast]);
 
   const handleSearch = async (term: string) => {
     if (!term.trim()) {
@@ -73,6 +102,10 @@ export function BillingClient() {
     setIsScannerOpen(false);
     setSearchTerm(barcode);
     handleSearch(barcode);
+     if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+    }
   };
 
   const addToCart = (product: Product) => {
@@ -99,21 +132,19 @@ export function BillingClient() {
   };
 
   const updateQuantity = (productId: string, newQuantity: number) => {
+     const productInCart = cart.find(p => p.id === productId)!;
+
     if (newQuantity < 1) {
         removeFromCart(productId);
         return;
     }
-    setCart(cart.map(item => {
-        if (item.id === productId) {
-            const productInCart = cart.find(p => p.id === productId)!;
-            if (newQuantity > productInCart.quantity) {
-                 toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only ${item.quantity} of ${item.name} available.`});
-                 return item; // return original item without change
-            }
-            return { ...item, quantity: newQuantity }
-        }
-        return item;
-    }));
+    
+    if (newQuantity > productInCart.quantity) {
+        toast({ variant: 'destructive', title: 'Stock Limit Reached', description: `Only ${productInCart.quantity} of ${productInCart.name} available.`});
+        return;
+    }
+
+    setCart(cart.map(item => item.id === productId ? { ...item, quantity: newQuantity } : item ));
   }
 
   const removeFromCart = (productId: string) => {
@@ -128,7 +159,7 @@ export function BillingClient() {
 
     try {
         await runTransaction(db, async (transaction) => {
-            const saleData = {
+            const saleData: {items: any[], totalAmount: number, createdBy: string, createdAt: any} = {
                 items: [],
                 totalAmount: totalAmount,
                 createdBy: userProfile.uid,
@@ -151,12 +182,12 @@ export function BillingClient() {
                 const newQuantity = currentQuantity - item.quantity;
                 transaction.update(productRef, { quantity: newQuantity });
                 
-                (saleData.items as any).push({
+                saleData.items.push({
                     productId: item.id,
                     name: item.name,
                     quantity: item.quantity,
                     sellingPrice: item.sellingPrice,
-                    purchasePrice: item.purchasePrice
+                    purchasePrice: item.purchasePrice || 0
                 });
             }
 
@@ -202,7 +233,20 @@ export function BillingClient() {
                     <DialogHeader>
                         <DialogTitle>Scan Barcode</DialogTitle>
                     </DialogHeader>
-                    {isScannerOpen && <BarcodeScanner onScan={handleBarcodeScanned} />}
+                     {isScannerOpen && (
+                        <div>
+                            <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                            {hasCameraPermission === false && (
+                                <Alert variant="destructive" className="mt-4">
+                                    <AlertTitle>Camera Access Required</AlertTitle>
+                                    <AlertDescription>
+                                        Please allow camera access in your browser to use this feature.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                             <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
         </div>
@@ -214,8 +258,11 @@ export function BillingClient() {
               <div key={product.id} onClick={() => addToCart(product)} className="p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between">
                 <div>
                     <span>{product.name}</span>
-                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${product.quantity > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {product.quantity > 0 ? `${product.quantity} in stock` : 'Out of stock'}
+                     <span className="ml-2">
+                        {product.quantity > 0 ? 
+                            <Badge variant="outline">{product.quantity} in stock</Badge> : 
+                            <Badge variant="destructive">Out of Stock</Badge>
+                        }
                     </span>
                 </div>
                 <span className="text-muted-foreground">${product.sellingPrice.toFixed(2)}</span>

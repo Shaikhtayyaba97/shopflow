@@ -737,3 +737,12 @@ Dev App Server is now running.
 
 Issues? Report them at https://github.com/firebase/firebase-tools/issues and attach the *-debug.log files.
  
+[info] i  firestore: Change detected, updating rules... 
+[debug] [2025-07-23T12:07:31.441Z] >>> [apiv2][query] PUT http://127.0.0.1:8080/emulator/v1/projects/demo-app:securityRules [none]
+[debug] [2025-07-23T12:07:31.441Z] >>> [apiv2][body] PUT http://127.0.0.1:8080/emulator/v1/projects/demo-app:securityRules {"ignore_errors":true,"rules":{"files":[{"name":"security.rules","content":"\nrules_version = '2';\n\nservice cloud.firestore {\n  match /databases/{database}/documents {\n  \n    function getUserRole(userId) {\n      return get(/databases/$(database)/documents/users/$(userId)).data.role;\n    }\n\n    match /users/{userId} {\n      allow read: if request.auth.uid == userId;\n      allow create; \n    }\n\n    match /products/{productId} {\n      allow get, list: if request.auth != null;\n      \n      allow create: if request.auth != null;\n\n      allow update: if getUserRole(request.auth.uid) == 'admin'\n                    || (getUserRole(request.auth.uid) == 'shopkeeper'\n                        && !('purchasePrice' in request.resource.data));\n\n      allow delete: if getUserRole(request.auth.uid) == 'admin';\n    }\n\n    match /sales/{saleId} {\n        allow create: if request.auth != null;\n        allow read: if getUserRole(request.auth.uid) == 'admin';\n    }\n  }\n}\n"}]}}
+[debug] [2025-07-23T12:07:31.483Z] Jul 23, 2025 12:07:31 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected non-HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Jul 23, 2025 12:07:31 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected non-HTTP/2 connection.\n"}}
+[debug] [2025-07-23T12:07:32.656Z] Jul 23, 2025 12:07:32 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead
+INFO: Detected HTTP/2 connection.
+ {"metadata":{"emulator":{"name":"firestore"},"message":"Jul 23, 2025 12:07:32 PM io.gapi.emulators.netty.HttpVersionRoutingHandler channelRead\nINFO: Detected HTTP/2 connection.\n"}}

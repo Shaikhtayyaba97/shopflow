@@ -30,6 +30,7 @@ import {
 import { ProductForm } from './ProductForm';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { Badge } from '../ui/badge';
 
 export function ProductsList() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -124,10 +125,16 @@ export function ProductsList() {
                 ) : products.map((product) => (
                     <TableRow key={product.id}>
                         <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.barcode}</TableCell>
-                        {isAdmin && <TableCell>${product.purchasePrice.toFixed(2)}</TableCell>}
-                        <TableCell>${product.sellingPrice.toFixed(2)}</TableCell>
-                        <TableCell>{product.quantity}</TableCell>
+                        <TableCell>{product.barcode || 'N/A'}</TableCell>
+                        {isAdmin && <TableCell>${product.purchasePrice?.toFixed(2) ?? '0.00'}</TableCell>}
+                        <TableCell>${product.sellingPrice?.toFixed(2) ?? 'N/A'}</TableCell>
+                        <TableCell>
+                            {product.quantity > 0 ? (
+                                product.quantity
+                            ) : (
+                                <Badge variant="destructive">Out of Stock</Badge>
+                            )}
+                        </TableCell>
                         <TableCell>{product.createdAt ? format(product.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
                         <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">

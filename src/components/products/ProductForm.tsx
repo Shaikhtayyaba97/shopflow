@@ -17,15 +17,25 @@ import { BarcodeScanner } from '../billing/BarcodeScanner';
 import type { Product } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 
-const formSchema = z.object({
+// Schema for admins
+const adminFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
   barcode: z.string().optional(),
-  purchasePrice: z.coerce.number().min(0, "Purchase price cannot be negative.").optional(),
+  purchasePrice: z.coerce.number().min(0, "Purchase price cannot be negative."),
   sellingPrice: z.coerce.number().positive("Selling price must be positive."),
   quantity: z.coerce.number().int().min(0, "Quantity cannot be negative."),
 });
 
-type ProductFormValues = z.infer<typeof formSchema>;
+// Schema for shopkeepers
+const shopkeeperFormSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters."),
+  barcode: z.string().optional(),
+  sellingPrice: z.coerce.number().min(0, "Selling price can't be negative.").optional(),
+  quantity: z.coerce.number().int().min(0, "Quantity cannot be negative."),
+});
+
+
+type ProductFormValues = z.infer<typeof adminFormSchema>;
 
 interface ProductFormProps {
   onProductAdded?: () => void;
@@ -42,7 +52,7 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
   const isAdmin = userProfile?.role === 'admin';
 
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(isAdmin ? adminFormSchema : shopkeeperFormSchema),
     defaultValues: {
       name: "",
       barcode: "",
@@ -84,19 +94,24 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
       if (isEditMode && productToEdit) {
         const productRef = doc(db, 'products', productToEdit.id);
         const updateData: any = {
-            ...values,
+            name: values.name,
+            barcode: values.barcode || '',
+            sellingPrice: values.sellingPrice,
+            quantity: values.quantity,
         };
-        if (!isAdmin) {
-            delete updateData.purchasePrice; // Ensure shopkeeper cannot update purchase price
+        if (isAdmin) {
+            updateData.purchasePrice = values.purchasePrice;
         }
         await setDoc(productRef, updateData , { merge: true });
         toast({ title: "Success", description: "Product updated successfully." });
         onProductUpdated?.();
       } else {
         await addDoc(collection(db, 'products'), {
-          ...values,
-          purchasePrice: isAdmin ? values.purchasePrice : 0, // Default to 0 if not admin
-          barcode: values.barcode || '', 
+          name: values.name,
+          barcode: values.barcode || '',
+          sellingPrice: values.sellingPrice || 0,
+          quantity: values.quantity,
+          purchasePrice: isAdmin ? values.purchasePrice : 0,
           createdAt: serverTimestamp(),
         });
         toast({ title: "Success", description: "Product added successfully." });
@@ -156,7 +171,7 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-2 gap-4">
+        <div className={`grid ${isAdmin ? 'grid-cols-2' : 'grid-cols-1'} gap-4`}>
             {isAdmin && (
                 <FormField
                   control={form.control}
@@ -176,10 +191,10 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
               control={form.control}
               name="sellingPrice"
               render={({ field }) => (
-                <FormItem className={!isAdmin ? 'col-span-2' : ''}>
+                <FormItem>
                   <FormLabel>Selling Price ($)</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.01" {...field} />
+                    <Input type="number" step="0.01" {...field} placeholder={!isAdmin ? "Leave blank to set later" : "0.00"} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
