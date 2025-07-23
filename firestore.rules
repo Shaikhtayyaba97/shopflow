@@ -1,35 +1,59 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isUserRole(role) {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    function isAuth() {
+      return request.auth != null;
     }
 
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isAuth() && request.auth.uid == userId;
     }
 
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuth() && getRole() == 'admin';
+    }
+
+    function isShopkeeper() {
+        return isAuth() && getRole() == 'shopkeeper';
+    }
+
+    // Users: Can read their own profile. Admins can read/write any profile.
     match /users/{userId} {
-      allow read: if isOwner(userId);
+      allow read: if isOwner(userId) || isAdmin();
+      allow write: if isOwner(userId) || isAdmin();
     }
 
+    // Products:
+    // - All authenticated users can read products.
+    // - Admins can do anything.
+    // - Shopkeepers can create products, but cannot set purchasePrice.
+    // - Shopkeepers can update products, but cannot change purchasePrice.
     match /products/{productId} {
-      allow read: if request.auth != null;
-      // Admins can do anything.
-      // Shopkeepers can create/update but can't touch purchasePrice.
-      allow create: if isUserRole('admin') || isUserRole('shopkeeper');
-      allow update: if isUserRole('admin') || 
-                     (isUserRole('shopkeeper') && !('purchasePrice' in request.resource.data));
-      allow delete: if isUserRole('admin');
+      allow read: if isAuth();
+
+      // Create: Admin can create with any fields.
+      // Shopkeeper can create, but purchasePrice must be 0.
+      allow create: if isAdmin() || (isShopkeeper() && request.resource.data.purchasePrice == 0);
+
+      // Update: Admin can update any field.
+      // Shopkeeper can update if they are NOT changing the purchasePrice.
+      allow update: if isAdmin() || (isShopkeeper() && request.resource.data.purchasePrice == resource.data.purchasePrice);
+      
+      // Delete: Only admins can delete.
+      allow delete: if isAdmin();
     }
 
+    // Sales:
+    // - Admins can read all sales.
+    // - Authenticated users (shopkeepers) can create sales.
     match /sales/{saleId} {
-      // Admins can read all sales data for reports.
-      allow read: if isUserRole('admin');
-      // Any authenticated user (shopkeeper or admin) can create a sale.
-      allow create: if request.auth != null;
+      allow read, write: if isAdmin();
+      allow create: if isAuth(); // Shopkeepers and Admins can create sales
     }
   }
 }
