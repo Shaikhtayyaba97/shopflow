@@ -52,48 +52,25 @@ export function BillingClient() {
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const handleSearch = useCallback(async (term: string) => {
-    if (term.trim().length < 2 && !/^\d+$/.test(term)) { // Allow single-digit barcode search but require 2+ for name
+  const handleNameSearch = useCallback(async (term: string) => {
+    if (term.trim().length < 2) {
       setSearchResults([]);
       return;
     }
     setIsSearching(true);
     
     const productsRef = collection(db, 'products');
-    const barcodeQuery = query(productsRef, where('barcode', '==', term));
-    // Updated to be case-insensitive by searching a range.
     const nameQuery = query(
       productsRef, 
       where('name', '>=', term.toLowerCase()),
       where('name', '<=', term.toLowerCase() + '\uf8ff'),
-      limit(10) // Limit suggestions for performance
+      limit(10)
     );
 
     try {
-        const [barcodeSnapshot, nameSnapshot] = await Promise.all([getDocs(barcodeQuery), getDocs(nameQuery)]);
+        const nameSnapshot = await getDocs(nameQuery);
         const products: Product[] = [];
         const productIds = new Set<string>();
-
-        let exactBarcodeMatch = false;
-        barcodeSnapshot.forEach((doc) => {
-            if(!productIds.has(doc.id)){
-                const product = { id: doc.id, ...doc.data() } as Product;
-                products.push(product);
-                productIds.add(doc.id);
-                if (product.barcode === term) {
-                    exactBarcodeMatch = true;
-                }
-            }
-        });
-
-        // If barcode scan adds an item, we are done.
-        if (exactBarcodeMatch) {
-            addToCart(products[0]);
-            setSearchTerm('');
-            setSearchResults([]);
-            setIsSearching(false);
-            return;
-        }
 
         nameSnapshot.forEach((doc) => {
             if(!productIds.has(doc.id)){
@@ -103,28 +80,48 @@ export function BillingClient() {
         });
         
         setSearchResults(products);
-
-        if (products.length === 0) {
-           if (searchTerm) { // Only show toast if user actually searched
-             toast({ variant: 'destructive', title: 'Not Found', description: 'No product found with that barcode or name.' });
-           }
-        }
     } catch (error) {
-      console.error("Error searching products:", error);
+      console.error("Error searching products by name:", error);
       toast({ variant: 'destructive', title: 'Search Error', description: 'Could not fetch products.' });
     } finally {
       setIsSearching(false);
+    }
+  }, [toast]);
+  
+  const handleBarcodeSearch = useCallback(async (barcode: string) => {
+    if (!barcode) return;
+    setIsSearching(true);
+    const productsRef = collection(db, 'products');
+    const barcodeQuery = query(productsRef, where('barcode', '==', barcode), limit(1));
+    
+    try {
+        const barcodeSnapshot = await getDocs(barcodeQuery);
+        if (!barcodeSnapshot.empty) {
+            const product = { id: barcodeSnapshot.docs[0].id, ...barcodeSnapshot.docs[0].data() } as Product;
+            addToCart(product);
+            setSearchTerm('');
+            setSearchResults([]);
+        } else {
+            toast({ variant: 'destructive', title: 'Not Found', description: 'No product found with that barcode.' });
+        }
+    } catch (error) {
+        console.error("Error searching products by barcode:", error);
+        toast({ variant: 'destructive', title: 'Search Error', description: 'Could not fetch product from barcode.' });
+    } finally {
+        setIsSearching(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (debouncedSearchTerm) {
-      handleSearch(debouncedSearchTerm);
+      // Logic to decide which search to run. If it's all digits, it could be a barcode.
+      // But for simplicity, we rely on name search for typing and explicit barcode search for scanning.
+      handleNameSearch(debouncedSearchTerm);
     } else {
       setSearchResults([]);
     }
-  }, [debouncedSearchTerm, handleSearch]);
+  }, [debouncedSearchTerm, handleNameSearch]);
 
   useEffect(() => {
     searchInputRef.current?.focus();
@@ -188,15 +185,19 @@ export function BillingClient() {
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && searchTerm) {
       event.preventDefault();
-      handleSearch(searchTerm);
+      // Assume enter is for barcode search if it's all digits
+      if (/^\d+$/.test(searchTerm)) {
+          handleBarcodeSearch(searchTerm);
+      } else {
+          handleNameSearch(searchTerm);
+      }
     }
   };
   
   const handleBarcodeScanned = useCallback((barcode: string) => {
     setIsScannerOpen(false);
-    setSearchTerm(barcode);
-    handleSearch(barcode);
-  }, [handleSearch]);
+    handleBarcodeSearch(barcode);
+  }, [handleBarcodeSearch]);
 
   const addToCart = (product: Product) => {
     if (product.quantity <= 0) {
