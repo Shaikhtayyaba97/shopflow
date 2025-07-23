@@ -1,18 +1,17 @@
 
 "use client"
 
-import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, Timestamp, orderBy, QueryConstraint, runTransaction, doc } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
+import { collection, query, where, getDocs, Timestamp, orderBy, runTransaction, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Sale, SaleItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { DateRange } from 'react-day-picker';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon, Loader2, Undo2 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -40,12 +39,13 @@ interface EnrichedSale extends Omit<Sale, 'items'> {
   totalProfit: number;
 }
 
+interface GroupedSales {
+    [date: string]: EnrichedSale[];
+}
+
 export function SalesClient() {
-    const [date, setDate] = useState<DateRange | undefined>({
-        from: new Date(),
-        to: new Date(),
-    });
-    const [sales, setSales] = useState<EnrichedSale[]>([]);
+    const [dates, setDates] = useState<Date[] | undefined>([new Date()]);
+    const [salesByDate, setSalesByDate] = useState<GroupedSales>({});
     const [loading, setLoading] = useState(false);
     const [isReturning, setIsReturning] = useState<string | null>(null);
     const { userProfile } = useAuth();
@@ -53,35 +53,48 @@ export function SalesClient() {
     const isAdmin = userProfile?.role === 'admin';
 
     const fetchSales = async () => {
-        if (!date?.from || !userProfile) return;
+        if (!dates || dates.length === 0 || !userProfile) return;
         setLoading(true);
 
-        const toDate = date.to ?? date.from;
-
         try {
-            const q = query(
-                collection(db, 'sales'),
-                where('createdAt', '>=', Timestamp.fromDate(startOfDay(date.from))),
-                where('createdAt', '<=', Timestamp.fromDate(endOfDay(toDate))),
-                orderBy('createdAt', 'desc')
-            );
-            
-            const querySnapshot = await getDocs(q);
-            const salesData = querySnapshot.docs.map(docSnapshot => {
-                const sale = { id: docSnapshot.id, ...docSnapshot.data() } as Sale;
-                let totalProfit = 0;
-                
-                const enrichedItems = sale.items.map((item, index) => {
-                    const profit = (item.sellingPrice - (item.purchasePrice || 0)) * item.quantity;
-                    if (!item.returned) {
-                        totalProfit += profit;
-                    }
-                    return { ...item, profit, saleId: sale.id, itemIndex: index };
-                });
-                
-                return { ...sale, items: enrichedItems, totalProfit };
+            const queries = dates.map(date => {
+                const q = query(
+                    collection(db, 'sales'),
+                    where('createdAt', '>=', Timestamp.fromDate(startOfDay(date))),
+                    where('createdAt', '<=', Timestamp.fromDate(endOfDay(date))),
+                    orderBy('createdAt', 'desc')
+                );
+                return getDocs(q);
             });
-            setSales(salesData);
+
+            const querySnapshots = await Promise.all(queries);
+            
+            const groupedSales: GroupedSales = {};
+            dates.forEach(date => {
+                groupedSales[format(date, 'yyyy-MM-dd')] = [];
+            });
+
+            querySnapshots.forEach((snapshot, index) => {
+                const dateKey = format(dates[index], 'yyyy-MM-dd');
+                const salesData = snapshot.docs.map(docSnapshot => {
+                    const sale = { id: docSnapshot.id, ...docSnapshot.data() } as Sale;
+                    let totalProfit = 0;
+                    
+                    const enrichedItems = sale.items.map((item, itemIndex) => {
+                        const profit = (item.sellingPrice - (item.purchasePrice || 0)) * item.quantity;
+                        if (!item.returned) {
+                            totalProfit += profit;
+                        }
+                        return { ...item, profit, saleId: sale.id, itemIndex: itemIndex };
+                    });
+                    
+                    return { ...sale, items: enrichedItems, totalProfit };
+                });
+                groupedSales[dateKey] = salesData;
+            });
+
+            setSalesByDate(groupedSales);
+
         } catch (error: any) {
              if (error.code === 'failed-precondition') {
                 toast({
@@ -119,7 +132,6 @@ export function SalesClient() {
                 const saleRef = doc(db, 'sales', saleId);
                 const productRef = doc(db, 'products', productId);
     
-                // --- 1. READS FIRST ---
                 const saleDoc = await transaction.get(saleRef);
                 const productDoc = await transaction.get(productRef);
     
@@ -134,7 +146,6 @@ export function SalesClient() {
                     throw new Error("Item already returned.");
                 }
     
-                // --- 2. WRITES LAST ---
                 newItems[itemIndex] = {
                     ...newItems[itemIndex],
                     returned: true,
@@ -159,17 +170,10 @@ export function SalesClient() {
             setIsReturning(null);
         }
     }
-
-    const totals = sales.reduce((acc, sale) => {
-        sale.items.forEach(item => {
-            if (!item.returned) {
-                acc.revenue += item.sellingPrice * item.quantity;
-                acc.profit += item.profit;
-                acc.totalItems += item.quantity;
-            }
-        });
-        return acc;
-    }, { revenue: 0, profit: 0, totalItems: 0 });
+    
+    const sortedDateKeys = useMemo(() => {
+      return Object.keys(salesByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    }, [salesByDate]);
 
     return (
         <div className="space-y-6">
@@ -178,27 +182,23 @@ export function SalesClient() {
                     <PopoverTrigger asChild>
                         <Button
                             variant={"outline"}
-                            className={cn("w-full sm:w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}
+                            className={cn("w-full sm:w-[300px] justify-start text-left font-normal", !dates && "text-muted-foreground")}
                         >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date?.from ? (
-                                date.to ? (
-                                    <>{format(date.from, "LLL dd, y")} - {format(date.to, "LLL dd, y")}</>
-                                ) : (
-                                    format(date.from, "LLL dd, y")
-                                )
+                            {dates && dates.length > 0 ? (
+                                `${dates.length} date(s) selected`
                             ) : (
-                                <span>Pick a date range</span>
+                                <span>Pick one or more dates</span>
                             )}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                             initialFocus
-                            mode="range"
-                            defaultMonth={date?.from}
-                            selected={date}
-                            onSelect={setDate}
+                            mode="multiple"
+                            min={0}
+                            selected={dates}
+                            onSelect={setDates}
                             numberOfMonths={2}
                         />
                     </PopoverContent>
@@ -214,103 +214,125 @@ export function SalesClient() {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                         <Card>
-                            <CardHeader><CardTitle>Total Items Sold</CardTitle></CardHeader>
-                            <CardContent><p className="text-2xl font-bold">{totals.totalItems}</p></CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader><CardTitle>Total Revenue</CardTitle></CardHeader>
-                            <CardContent><p className="text-2xl font-bold">{totals.revenue.toFixed(2)}</p></CardContent>
-                        </Card>
-                        {isAdmin && (
-                            <Card>
-                                <CardHeader><CardTitle>Total Profit</CardTitle></CardHeader>
-                                <CardContent><p className="text-2xl font-bold text-green-600">{totals.profit.toFixed(2)}</p></CardContent>
+                <div className="space-y-8">
+                    {sortedDateKeys.map(dateKey => {
+                        const sales = salesByDate[dateKey];
+                        const totals = sales.reduce((acc, sale) => {
+                            sale.items.forEach(item => {
+                                if (!item.returned) {
+                                    acc.revenue += item.sellingPrice * item.quantity;
+                                    acc.profit += item.profit;
+                                    acc.totalItems += item.quantity;
+                                }
+                            });
+                            return acc;
+                        }, { revenue: 0, profit: 0, totalItems: 0 });
+
+                        return (
+                            <Card key={dateKey}>
+                                <CardHeader>
+                                    <CardTitle>Sales for {format(new Date(dateKey), 'PPP')}</CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                         <Card>
+                                            <CardHeader><CardTitle>Total Items Sold</CardTitle></CardHeader>
+                                            <CardContent><p className="text-2xl font-bold">{totals.totalItems}</p></CardContent>
+                                        </Card>
+                                        <Card>
+                                            <CardHeader><CardTitle>Total Revenue</CardTitle></CardHeader>
+                                            <CardContent><p className="text-2xl font-bold">{totals.revenue.toFixed(2)}</p></CardContent>
+                                        </Card>
+                                        {isAdmin && (
+                                            <Card>
+                                                <CardHeader><CardTitle>Total Profit</CardTitle></CardHeader>
+                                                <CardContent><p className="text-2xl font-bold text-green-600">{totals.profit.toFixed(2)}</p></CardContent>
+                                            </Card>
+                                        )}
+                                    </div>
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle className="text-lg">Sales Details</CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Time</TableHead>
+                                                        <TableHead>Sold By</TableHead>
+                                                        <TableHead>Product</TableHead>
+                                                        <TableHead>Qty</TableHead>
+                                                        {isAdmin && <TableHead className="text-right">Buying Price</TableHead>}
+                                                        <TableHead className="text-right">Selling Price</TableHead>
+                                                        <TableHead className="text-right">Total Amount</TableHead>
+                                                        {isAdmin && <TableHead className="text-right">Profit</TableHead>}
+                                                        <TableHead className="text-right">Actions</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {sales.length === 0 ? (
+                                                        <TableRow>
+                                                            <TableCell colSpan={isAdmin ? 9 : 7} className="text-center py-8 text-muted-foreground">
+                                                                No sales recorded on this date.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    ) : (
+                                                        sales.flatMap(sale => 
+                                                            sale.items.map((item, index) => (
+                                                                <TableRow key={`${sale.id}-${item.productId}-${index}`} className={cn(item.returned && "bg-muted/50")}>
+                                                                    <TableCell className={cn(item.returned && "line-through")}>{format(sale.createdAt.toDate(), 'p')}</TableCell>
+                                                                    <TableCell className={cn("capitalize", item.returned && "line-through")}>
+                                                                        <Badge variant="outline">{sale.createdByRole}</Badge>
+                                                                    </TableCell>
+                                                                    <TableCell className={cn(item.returned && "line-through")}>{item.name}</TableCell>
+                                                                    <TableCell className={cn(item.returned && "line-through")}>{item.quantity}</TableCell>
+                                                                    {isAdmin && <TableCell className={cn("text-right", item.returned && "line-through")}>{item.purchasePrice.toFixed(2)}</TableCell>}
+                                                                    <TableCell className={cn("text-right", item.returned && "line-through")}>{item.sellingPrice.toFixed(2)}</TableCell>
+                                                                    <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
+                                                                    {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
+                                                                    <TableCell className="text-right">
+                                                                        {item.returned ? (
+                                                                            <Badge className={cn(
+                                                                                "text-white",
+                                                                                item.returnedByRole === 'admin' ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'
+                                                                            )}>Returned</Badge>
+                                                                        ) : (
+                                                                            <AlertDialog>
+                                                                                <AlertDialogTrigger asChild>
+                                                                                    <Button variant="ghost" size="icon" disabled={isReturning === `${item.saleId}-${item.itemIndex}`}>
+                                                                                        {isReturning === `${item.saleId}-${item.itemIndex}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
+                                                                                    </Button>
+                                                                                </AlertDialogTrigger>
+                                                                                <AlertDialogContent>
+                                                                                    <AlertDialogHeader>
+                                                                                        <AlertDialogTitle>Return Item?</AlertDialogTitle>
+                                                                                        <AlertDialogDescription>
+                                                                                            Are you sure you want to mark this item as returned? This will add {item.quantity} back to the stock for {item.name}. This action cannot be undone.
+                                                                                        </AlertDialogDescription>
+                                                                                    </AlertDialogHeader>
+                                                                                    <AlertDialogFooter>
+                                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                                        <AlertDialogAction onClick={() => handleReturn(item.saleId, item.itemIndex, item.productId, item.quantity)}>
+                                                                                            Confirm Return
+                                                                                        </AlertDialogAction>
+                                                                                    </AlertDialogFooter>
+                                                                                </AlertDialogContent>
+                                                                            </AlertDialog>
+                                                                        )}
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))
+                                                        )
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                        </CardContent>
+                                    </Card>
+                                </CardContent>
                             </Card>
-                        )}
-                    </div>
-                    
-                    <Card>
-                        <CardHeader><CardTitle>Sales Details</CardTitle></CardHeader>
-                        <CardContent>
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Date</TableHead>
-                                        <TableHead>Sold By</TableHead>
-                                        <TableHead>Product</TableHead>
-                                        <TableHead>Qty</TableHead>
-                                        {isAdmin && <TableHead className="text-right">Buying Price</TableHead>}
-                                        <TableHead className="text-right">Selling Price</TableHead>
-                                        <TableHead className="text-right">Total Amount</TableHead>
-                                        {isAdmin && <TableHead className="text-right">Profit</TableHead>}
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {sales.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={isAdmin ? 9 : 7} className="text-center py-8 text-muted-foreground">
-                                                No sales recorded for the selected period.
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        sales.flatMap(sale => 
-                                            sale.items.map((item, index) => (
-                                                <TableRow key={`${sale.id}-${item.productId}-${index}`} className={cn(item.returned && "bg-muted/50")}>
-                                                    <TableCell className={cn(item.returned && "line-through")}>{index === 0 ? format(sale.createdAt.toDate(), 'PP p') : ''}</TableCell>
-                                                    <TableCell className={cn("capitalize", item.returned && "line-through")}>
-                                                      {index === 0 ? (
-                                                          <Badge variant="outline">{sale.createdByRole}</Badge>
-                                                      ) : ''}
-                                                    </TableCell>
-                                                    <TableCell className={cn(item.returned && "line-through")}>{item.name}</TableCell>
-                                                    <TableCell className={cn(item.returned && "line-through")}>{item.quantity}</TableCell>
-                                                    {isAdmin && <TableCell className={cn("text-right", item.returned && "line-through")}>{item.purchasePrice.toFixed(2)}</TableCell>}
-                                                    <TableCell className={cn("text-right", item.returned && "line-through")}>{item.sellingPrice.toFixed(2)}</TableCell>
-                                                    <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
-                                                    {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
-                                                    <TableCell className="text-right">
-                                                        {item.returned ? (
-                                                           <Badge className={cn(
-                                                                "text-white",
-                                                                item.returnedByRole === 'admin' ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'
-                                                              )}>Returned</Badge>
-                                                        ) : (
-                                                            <AlertDialog>
-                                                                <AlertDialogTrigger asChild>
-                                                                    <Button variant="ghost" size="icon" disabled={isReturning === `${item.saleId}-${item.itemIndex}`}>
-                                                                        {isReturning === `${item.saleId}-${item.itemIndex}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
-                                                                    </Button>
-                                                                </AlertDialogTrigger>
-                                                                <AlertDialogContent>
-                                                                    <AlertDialogHeader>
-                                                                        <AlertDialogTitle>Return Item?</AlertDialogTitle>
-                                                                        <AlertDialogDescription>
-                                                                            Are you sure you want to mark this item as returned? This will add {item.quantity} back to the stock for {item.name}. This action cannot be undone.
-                                                                        </AlertDialogDescription>
-                                                                    </AlertDialogHeader>
-                                                                    <AlertDialogFooter>
-                                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                        <AlertDialogAction onClick={() => handleReturn(item.saleId, item.itemIndex, item.productId, item.quantity)}>
-                                                                            Confirm Return
-                                                                        </AlertDialogAction>
-                                                                    </AlertDialogFooter>
-                                                                </AlertDialogContent>
-                                                            </AlertDialog>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </CardContent>
-                    </Card>
-                </>
+                        )
+                    })}
+                </div>
             )}
         </div>
     );
