@@ -35,10 +35,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# genkit
-.genkit/
-.genkit-cache/
-genkit.log
-
-
+# firebase
 serviceAccountKey.json

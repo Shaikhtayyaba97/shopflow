@@ -1,4 +1,5 @@
 // scripts/seed-users.js
+require('dotenv').config();
 const admin = require('firebase-admin');
 const fs = require('fs');
 
@@ -23,13 +24,13 @@ const db = admin.firestore();
 
 const usersToCreate = [
     {
-        phoneNumber: '03363856003',
-        password: 'password123',
+        phoneNumber: process.env.ADMIN_PHONE,
+        password: process.env.ADMIN_PASSWORD,
         role: 'admin',
     },
     {
-        phoneNumber: '03110349230',
-        password: 'password123',
+        phoneNumber: process.env.SHOPKEEPER_PHONE,
+        password: process.env.SHOPKEEPER_PASSWORD,
         role: 'shopkeeper',
     }
 ];
@@ -38,6 +39,12 @@ async function seedUsers() {
     console.log('Starting to seed users...');
     for (const userData of usersToCreate) {
         const { phoneNumber, password, role } = userData;
+
+        if (!phoneNumber || !password) {
+            console.error(`Error: Missing phone number or password for role: ${role}. Check your .env file.`);
+            continue;
+        }
+
         const email = `${phoneNumber}@shopflow.com`;
 
         try {
