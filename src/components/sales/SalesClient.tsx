@@ -273,7 +273,7 @@ export function SalesClient() {
                                                     {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
                                                     <TableCell className="text-right">
                                                         {item.returned ? (
-                                                            <Badge variant={item.returnedByRole === 'admin' ? 'default' : 'destructive'} className={cn(item.returnedByRole === 'admin' && 'bg-green-600 hover:bg-green-700')}>Returned</Badge>
+                                                            <Badge variant={item.returnedByRole === 'admin' ? 'default' : 'destructive'} className={cn(item.returnedByRole === 'admin' && 'bg-green-600 text-white hover:bg-green-700')}>Returned</Badge>
                                                         ) : (
                                                             <AlertDialog>
                                                                 <AlertDialogTrigger asChild>
