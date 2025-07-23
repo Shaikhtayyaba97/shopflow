@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, Timestamp, orderBy, QueryConstraint, runTransaction, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp, orderBy, QueryConstraint, runTransaction, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Sale, SaleItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -115,7 +115,7 @@ export function SalesClient() {
         setIsReturning(returnIdentifier);
         
         try {
-            await runTransaction(db, async (transaction) => {
+             await runTransaction(db, async (transaction) => {
                 const saleRef = doc(db, 'sales', saleId);
                 const productRef = doc(db, 'products', productId);
 
@@ -165,10 +165,11 @@ export function SalesClient() {
             if (!item.returned) {
                 acc.revenue += item.sellingPrice * item.quantity;
                 acc.profit += item.profit;
+                acc.totalItems += item.quantity;
             }
         });
         return acc;
-    }, { revenue: 0, profit: 0 });
+    }, { revenue: 0, profit: 0, totalItems: 0 });
 
     return (
         <div className="space-y-6">
@@ -214,7 +215,11 @@ export function SalesClient() {
                 </div>
             ) : (
                 <>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                         <Card>
+                            <CardHeader><CardTitle>Total Items Sold</CardTitle></CardHeader>
+                            <CardContent><p className="text-2xl font-bold">{totals.totalItems}</p></CardContent>
+                        </Card>
                         <Card>
                             <CardHeader><CardTitle>Total Revenue</CardTitle></CardHeader>
                             <CardContent><p className="text-2xl font-bold">{totals.revenue.toFixed(2)}</p></CardContent>
@@ -272,7 +277,7 @@ export function SalesClient() {
                                                     {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
                                                     <TableCell className="text-right">
                                                         {item.returned ? (
-                                                            <Badge className={cn(
+                                                           <Badge className={cn(
                                                                 "text-white",
                                                                 item.returnedByRole === 'admin' ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'
                                                               )}>Returned</Badge>

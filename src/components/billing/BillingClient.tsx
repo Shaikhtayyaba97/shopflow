@@ -2,19 +2,21 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, runTransaction, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, runTransaction, doc, onSnapshot, Timestamp, startOfDay, endOfDay, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Product, CartItem } from '@/types';
+import type { Product, CartItem, Sale } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { BarcodeScanner } from './BarcodeScanner';
-import { Search, ScanLine, Loader2, Plus, Minus, Trash2 } from 'lucide-react';
+import { Search, ScanLine, Loader2, Plus, Minus, Trash2, CalendarClock } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { format } from 'date-fns';
 
 export function BillingClient() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -24,6 +26,8 @@ export function BillingClient() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [todaysSales, setTodaysSales] = useState<Sale[]>([]);
+  const [loadingTodaysSales, setLoadingTodaysSales] = useState(true);
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +56,30 @@ export function BillingClient() {
       getCameraPermission();
     }
   }, [isScannerOpen, toast]);
+
+    useEffect(() => {
+        setLoadingTodaysSales(true);
+        const todayStart = startOfDay(new Date());
+        const todayEnd = endOfDay(new Date());
+
+        const q = query(
+            collection(db, 'sales'),
+            where('createdAt', '>=', Timestamp.fromDate(todayStart)),
+            where('createdAt', '<=', Timestamp.fromDate(todayEnd)),
+            orderBy('createdAt', 'desc')
+        );
+
+        const unsubscribe = onSnapshot(q, (querySnapshot) => {
+            const salesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+            setTodaysSales(salesData);
+            setLoadingTodaysSales(false);
+        }, (error) => {
+            console.error("Error fetching today's sales:", error);
+            setLoadingTodaysSales(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
 
   const handleSearch = async (term: string) => {
     if (!term.trim()) {
@@ -172,15 +200,8 @@ export function BillingClient() {
 
     try {
         await runTransaction(db, async (transaction) => {
-            const saleData: {
-                items: any[], 
-                totalAmount: number, 
-                createdBy: string,
-                createdByName: string | null,
-                createdByRole: string,
-                createdAt: any
-            } = {
-                items: [],
+            const saleData = {
+                items: [] as any[],
                 totalAmount: totalAmount,
                 createdBy: userProfile.uid,
                 createdByName: userProfile.email,
@@ -227,119 +248,188 @@ export function BillingClient() {
     }
   }
 
-  return (
-    <div className="grid md:grid-cols-2 gap-8">
-      <div className="space-y-4">
-        <div className="flex gap-2">
-            <div className="relative w-full">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <Input
-                    ref={searchInputRef}
-                    placeholder="Search by name or barcode..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                        setSearchTerm(e.target.value);
-                        handleSearch(e.target.value);
-                    }}
-                    className="pl-10"
-                    disabled={isCheckingOut}
-                />
-            </div>
-            <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
-                <DialogTrigger asChild>
-                    <Button variant="outline" size="icon" disabled={isCheckingOut}>
-                        <ScanLine className="h-5 w-5" />
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Scan Barcode</DialogTitle>
-                    </DialogHeader>
-                     {isScannerOpen && (
-                        <div>
-                            <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
-                            {hasCameraPermission === false && (
-                                <Alert variant="destructive" className="mt-4">
-                                    <AlertTitle>Camera Access Required</AlertTitle>
-                                    <AlertDescription>
-                                        Please allow camera access in your browser to use this feature.
-                                    </AlertDescription>
-                                </Alert>
-                            )}
-                             <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-        </div>
-        
-        {isSearching && <Loader2 className="animate-spin mx-auto mt-4" />}
-        {!isSearching && searchResults.length > 0 && (
-          <div className="border rounded-md max-h-60 overflow-y-auto">
-            {searchResults.map(product => (
-              <div key={product.id} onClick={() => addToCart(product)} className="p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between">
-                <div>
-                    <span>{product.name}</span>
-                     <span className="ml-2">
-                        {product.quantity > 0 ? 
-                            <Badge variant="outline">{product.quantity} in stock</Badge> : 
-                            <Badge variant="destructive">Out of Stock</Badge>
-                        }
-                    </span>
-                </div>
-                <span className="text-muted-foreground">{product.sellingPrice}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+  const { todaysTotalRevenue, todaysTotalItems } = todaysSales.reduce((acc, sale) => {
+        sale.items.forEach(item => {
+            if (!item.returned) {
+                acc.todaysTotalRevenue += item.sellingPrice * item.quantity;
+                acc.todaysTotalItems += item.quantity;
+            }
+        });
+        return acc;
+    }, { todaysTotalRevenue: 0, todaysTotalItems: 0 });
 
-      <div className="space-y-4">
-        <h3 className="text-xl font-semibold">Cart</h3>
-        <div className="border rounded-md">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Product</TableHead>
-                        <TableHead>Qty</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
-                        <TableHead></TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {cart.length === 0 ? (
-                        <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Cart is empty</TableCell></TableRow>
-                    ) : cart.map(item => (
-                        <TableRow key={item.id}>
-                            <TableCell>{item.name}</TableCell>
-                            <TableCell>
-                                <div className="flex items-center gap-1">
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantityInCart - 1)} disabled={isCheckingOut}><Minus className="h-4 w-4" /></Button>
-                                    <span className="w-4 text-center">{item.quantityInCart}</span>
-                                    <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantityInCart + 1)} disabled={isCheckingOut}><Plus className="h-4 w-4" /></Button>
-                                </div>
-                            </TableCell>
-                            <TableCell className="text-right">{item.sellingPrice}</TableCell>
-                            <TableCell className="text-right">{(item.sellingPrice * item.quantityInCart)}</TableCell>
-                            <TableCell className="text-right">
-                                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeFromCart(item.id)} disabled={isCheckingOut}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </div>
-        {cart.length > 0 && (
-            <div className="flex justify-between items-center pt-4 border-t">
-                <div className="text-2xl font-bold">Total: {totalAmount}</div>
-                <Button size="lg" onClick={handleCheckout} disabled={isCheckingOut || cart.length === 0}>
-                    {isCheckingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Checkout
-                </Button>
-            </div>
-        )}
+  return (
+      <div className="grid lg:grid-cols-2 gap-8">
+          <div className="space-y-4">
+              <h3 className="text-xl font-semibold">New Sale</h3>
+              <div className="flex gap-2">
+                  <div className="relative w-full">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                      <Input
+                          ref={searchInputRef}
+                          placeholder="Search by name or barcode..."
+                          value={searchTerm}
+                          onChange={(e) => {
+                              setSearchTerm(e.target.value);
+                              handleSearch(e.target.value);
+                          }}
+                          className="pl-10"
+                          disabled={isCheckingOut}
+                      />
+                  </div>
+                  <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
+                      <DialogTrigger asChild>
+                          <Button variant="outline" size="icon" disabled={isCheckingOut}>
+                              <ScanLine className="h-5 w-5" />
+                          </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                          <DialogHeader>
+                              <DialogTitle>Scan Barcode</DialogTitle>
+                          </DialogHeader>
+                          {isScannerOpen && (
+                              <div>
+                                  <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                                  {hasCameraPermission === false && (
+                                      <Alert variant="destructive" className="mt-4">
+                                          <AlertTitle>Camera Access Required</AlertTitle>
+                                          <AlertDescription>
+                                              Please allow camera access in your browser to use this feature.
+                                          </AlertDescription>
+                                      </Alert>
+                                  )}
+                                  <BarcodeScanner onScan={handleBarcodeScanned} videoRef={videoRef} />
+                              </div>
+                          )}
+                      </DialogContent>
+                  </Dialog>
+              </div>
+
+              {isSearching && <Loader2 className="animate-spin mx-auto mt-4" />}
+              {!isSearching && searchResults.length > 0 && (
+                  <div className="border rounded-md max-h-60 overflow-y-auto">
+                      {searchResults.map(product => (
+                          <div key={product.id} onClick={() => addToCart(product)} className="p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between">
+                              <div>
+                                  <span>{product.name}</span>
+                                  <span className="ml-2">
+                                      {product.quantity > 0 ?
+                                          <Badge variant="outline">{product.quantity} in stock</Badge> :
+                                          <Badge variant="destructive">Out of Stock</Badge>
+                                      }
+                                  </span>
+                              </div>
+                              <span className="text-muted-foreground">{product.sellingPrice}</span>
+                          </div>
+                      ))}
+                  </div>
+              )}
+
+              <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Cart</h3>
+                  <div className="border rounded-md">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>Product</TableHead>
+                                  <TableHead>Qty</TableHead>
+                                  <TableHead className="text-right">Price</TableHead>
+                                  <TableHead className="text-right">Total</TableHead>
+                                  <TableHead></TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {cart.length === 0 ? (
+                                  <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Cart is empty</TableCell></TableRow>
+                              ) : cart.map(item => (
+                                  <TableRow key={item.id}>
+                                      <TableCell>{item.name}</TableCell>
+                                      <TableCell>
+                                          <div className="flex items-center gap-1">
+                                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantityInCart - 1)} disabled={isCheckingOut}><Minus className="h-4 w-4" /></Button>
+                                              <span className="w-4 text-center">{item.quantityInCart}</span>
+                                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => updateQuantity(item.id, item.quantityInCart + 1)} disabled={isCheckingOut}><Plus className="h-4 w-4" /></Button>
+                                          </div>
+                                      </TableCell>
+                                      <TableCell className="text-right">{item.sellingPrice}</TableCell>
+                                      <TableCell className="text-right">{(item.sellingPrice * item.quantityInCart)}</TableCell>
+                                      <TableCell className="text-right">
+                                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => removeFromCart(item.id)} disabled={isCheckingOut}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                                      </TableCell>
+                                  </TableRow>
+                              ))}
+                          </TableBody>
+                      </Table>
+                  </div>
+                  {cart.length > 0 && (
+                      <div className="flex justify-between items-center pt-4 border-t">
+                          <div className="text-2xl font-bold">Total: {totalAmount}</div>
+                          <Button size="lg" onClick={handleCheckout} disabled={isCheckingOut || cart.length === 0}>
+                              {isCheckingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                              Checkout
+                          </Button>
+                      </div>
+                  )}
+              </div>
+          </div>
+
+          <div className="space-y-4">
+              <Card>
+                  <CardHeader>
+                      <div className="flex items-center gap-2">
+                          <CalendarClock className="h-6 w-6" />
+                          <CardTitle>Today's Sales Summary</CardTitle>
+                      </div>
+                      <CardDescription>A live overview of sales made today.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="flex justify-between items-center mb-4 pb-4 border-b">
+                          <div>
+                              <p className="text-sm text-muted-foreground">Total Items Sold</p>
+                              <p className="text-2xl font-bold">{todaysTotalItems}</p>
+                          </div>
+                          <div>
+                              <p className="text-sm text-muted-foreground">Total Revenue</p>
+                              <p className="text-2xl font-bold">{todaysTotalRevenue.toFixed(2)}</p>
+                          </div>
+                      </div>
+                      <h4 className="font-semibold mb-2">Items Sold Today:</h4>
+                      <div className="max-h-[400px] overflow-y-auto">
+                           {loadingTodaysSales ? (
+                              <div className="flex justify-center items-center py-8">
+                                <Loader2 className="h-8 w-8 animate-spin" />
+                              </div>
+                           ) : todaysSales.length === 0 ? (
+                              <p className="text-center text-muted-foreground py-8">No sales yet today.</p>
+                           ) : (
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Time</TableHead>
+                                        <TableHead>Item</TableHead>
+                                        <TableHead>Qty</TableHead>
+                                        <TableHead className="text-right">Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {todaysSales.flatMap(sale => sale.items.map((item, index) => (
+                                        <TableRow key={`${sale.id}-${index}`} className={item.returned ? 'bg-muted/50' : ''}>
+                                            <TableCell className={item.returned ? 'line-through' : ''}>{format(sale.createdAt.toDate(), 'p')}</TableCell>
+                                            <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
+                                            <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
+                                            <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
+                                                {(item.sellingPrice * item.quantity).toFixed(2)}
+                                            </TableCell>
+                                        </TableRow>
+                                    )))}
+                                </TableBody>
+                            </Table>
+                           )}
+                      </div>
+                  </CardContent>
+              </Card>
+          </div>
       </div>
-    </div>
   );
 }
+
