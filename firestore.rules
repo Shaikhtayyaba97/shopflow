@@ -1,4 +1,6 @@
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -6,54 +8,36 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuth() && request.auth.uid == userId;
-    }
-
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
-    }
-
     function isAdmin() {
-      return isAuth() && getRole() == 'admin';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isShopkeeper() {
-        return isAuth() && getRole() == 'shopkeeper';
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'shopkeeper';
     }
 
-    // Users: Can read their own profile. Admins can read/write any profile.
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow write: if isOwner(userId) || isAdmin();
+      allow read: if isAuth();
+      allow write: if isAdmin(); // Only admins can create/edit roles
     }
 
-    // Products:
-    // - All authenticated users can read products.
-    // - Admins can do anything.
-    // - Shopkeepers can create products, but cannot set purchasePrice.
-    // - Shopkeepers can update products, but cannot change purchasePrice.
     match /products/{productId} {
       allow read: if isAuth();
 
-      // Create: Admin can create with any fields.
-      // Shopkeeper can create, but purchasePrice must be 0.
-      allow create: if isAdmin() || (isShopkeeper() && request.resource.data.purchasePrice == 0);
+      // Admins can do anything
+      allow write: if isAdmin();
 
-      // Update: Admin can update any field.
-      // Shopkeeper can update if they are NOT changing the purchasePrice.
-      allow update: if isAdmin() || (isShopkeeper() && request.resource.data.purchasePrice == resource.data.purchasePrice);
+      // Shopkeepers can create products
+      allow create: if isShopkeeper();
       
-      // Delete: Only admins can delete.
-      allow delete: if isAdmin();
+      // Shopkeepers can update products, but NOT the purchasePrice
+      allow update: if isShopkeeper() && !('purchasePrice' in request.resource.data);
     }
-
-    // Sales:
-    // - Admins can read all sales.
-    // - Authenticated users (shopkeepers) can create sales.
+    
     match /sales/{saleId} {
-      allow read, write: if isAdmin();
-      allow create: if isAuth(); // Shopkeepers and Admins can create sales
+        allow create: if isAuth();
+        allow read: if isAdmin() || (isShopkeeper() && resource.data.createdBy == request.auth.uid);
+        allow write: if isAdmin();
     }
   }
 }

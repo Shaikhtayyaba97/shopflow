@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -7,6 +8,7 @@ import {
   Package,
   ScanLine,
   LineChart,
+  DollarSign,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -64,6 +66,7 @@ export function AppSidebar({ userProfile }: { userProfile: UserProfile }) {
           <NavLink href="/dashboard" icon={Home} label="Dashboard" />
           <NavLink href="/dashboard/products" icon={Package} label="Products" />
           <NavLink href="/dashboard/billing" icon={ScanLine} label="Billing" />
+          <NavLink href="/dashboard/sales" icon={DollarSign} label="Sales" />
           {userProfile.role === 'admin' && (
             <NavLink href="/dashboard/reports" icon={LineChart} label="Reports" />
           )}
