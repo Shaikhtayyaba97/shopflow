@@ -70,7 +70,6 @@ export function SalesClient() {
             });
             setSales(salesData);
         } catch (error: any) {
-            console.error("Error fetching sales:", error);
             if (error.code === 'failed-precondition') {
                 toast({
                     variant: 'destructive',
@@ -85,6 +84,7 @@ export function SalesClient() {
                     title: 'Error',
                     description: 'Could not fetch sales records.',
                 });
+                 console.error("Error fetching sales:", error);
             }
         } finally {
             setLoading(false);
@@ -207,4 +207,3 @@ export function SalesClient() {
         </div>
     );
 }
-
