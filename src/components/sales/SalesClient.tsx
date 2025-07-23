@@ -43,78 +43,52 @@ interface GroupedSales {
     [date: string]: EnrichedSale[];
 }
 
-type ViewMode = 'filtered' | 'all';
-
 export function SalesClient() {
-    const [dates, setDates] = useState<Date[] | undefined>([new Date()]);
+    const [date, setDate] = useState<Date | undefined>(new Date());
     const [salesByDate, setSalesByDate] = useState<GroupedSales>({});
     const [loading, setLoading] = useState(false);
     const [isReturning, setIsReturning] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<ViewMode>('filtered');
     const { userProfile } = useAuth();
     const { toast } = useToast();
     const isAdmin = userProfile?.role === 'admin';
 
-    const fetchSales = async (mode: ViewMode) => {
-        if (!userProfile) return;
-        if (mode === 'filtered' && (!dates || dates.length === 0)) {
-            toast({ variant: 'destructive', title: 'No Date Selected', description: 'Please select at least one date for the filtered report.' });
+    const fetchSales = async () => {
+        if (!userProfile || !date) {
+            toast({ variant: 'destructive', title: 'No Date Selected', description: 'Please select a date for the report.' });
             return;
         }
         setLoading(true);
 
         try {
-            let salesQuery;
-            if (mode === 'all') {
-                salesQuery = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
-            } else {
-                // For filtered view, we will construct multiple queries
-            }
+            const startDate = startOfDay(date);
+            const endDate = endOfDay(date);
+
+            const q = query(
+                collection(db, 'sales'),
+                where('createdAt', '>=', Timestamp.fromDate(startDate)),
+                where('createdAt', '<=', Timestamp.fromDate(endDate)),
+                orderBy('createdAt', 'desc')
+            );
             
-            const querySnapshots = [];
-            if (mode === 'filtered' && dates) {
-                 const queries = dates.map(date => {
-                    const q = query(
-                        collection(db, 'sales'),
-                        where('createdAt', '>=', Timestamp.fromDate(startOfDay(date))),
-                        where('createdAt', '<=', Timestamp.fromDate(endOfDay(date))),
-                        orderBy('createdAt', 'desc')
-                    );
-                    return getDocs(q);
-                });
-                querySnapshots.push(...await Promise.all(queries));
-            } else {
-                 salesQuery = query(collection(db, 'sales'), orderBy('createdAt', 'desc'));
-                 querySnapshots.push(await getDocs(salesQuery));
-            }
+            const querySnapshot = await getDocs(q);
 
             const groupedSales: GroupedSales = {};
-            if(mode === 'filtered' && dates) {
-                dates.forEach(date => {
-                    groupedSales[format(date, 'yyyy-MM-dd')] = [];
-                });
-            }
+            const dateKey = format(date, 'yyyy-MM-dd');
+            groupedSales[dateKey] = [];
 
-            querySnapshots.forEach((snapshot, index) => {
-                snapshot.docs.forEach(docSnapshot => {
-                    const sale = { id: docSnapshot.id, ...docSnapshot.data() } as Sale;
-                    const dateKey = format(sale.createdAt.toDate(), 'yyyy-MM-dd');
-
-                    if (!groupedSales[dateKey]) {
-                        groupedSales[dateKey] = [];
+            querySnapshot.docs.forEach(docSnapshot => {
+                const sale = { id: docSnapshot.id, ...docSnapshot.data() } as Sale;
+                
+                let totalProfit = 0;
+                const enrichedItems = sale.items.map((item, itemIndex) => {
+                    const profit = (item.sellingPrice - (item.purchasePrice || 0)) * item.quantity;
+                    if (!item.returned) {
+                        totalProfit += profit;
                     }
-
-                    let totalProfit = 0;
-                    const enrichedItems = sale.items.map((item, itemIndex) => {
-                        const profit = (item.sellingPrice - (item.purchasePrice || 0)) * item.quantity;
-                        if (!item.returned) {
-                            totalProfit += profit;
-                        }
-                        return { ...item, profit, saleId: sale.id, itemIndex };
-                    });
-                    
-                    groupedSales[dateKey].push({ ...sale, items: enrichedItems, totalProfit });
+                    return { ...item, profit, saleId: sale.id, itemIndex };
                 });
+                
+                groupedSales[dateKey].push({ ...sale, items: enrichedItems, totalProfit });
             });
             
             setSalesByDate(groupedSales);
@@ -139,14 +113,9 @@ export function SalesClient() {
         }
     };
     
-    const handleFetchRequest = (mode: ViewMode) => {
-        setViewMode(mode);
-        fetchSales(mode);
-    };
-
     useEffect(() => {
         if(userProfile) {
-            handleFetchRequest('filtered');
+            fetchSales();
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userProfile]);
@@ -182,7 +151,7 @@ export function SalesClient() {
                 newItems[itemIndex] = {
                     ...newItems[itemIndex],
                     returned: true,
-                    returnedAt: Timestamp.fromDate(new Date()),
+                    returnedAt: Timestamp.now(),
                     returnedBy: userProfile.email || userProfile.uid,
                     returnedByRole: userProfile.role,
                 };
@@ -196,7 +165,7 @@ export function SalesClient() {
             });
 
             toast({ title: 'Return successful', description: 'Stock has been updated.' });
-            fetchSales(viewMode); // Refresh the sales data based on the current view
+            fetchSales(); 
         } catch (error: any) {
             toast({ variant: 'destructive', title: 'Return Error', description: error.message || 'Could not process the return.' });
         } finally {
@@ -215,34 +184,27 @@ export function SalesClient() {
                     <PopoverTrigger asChild>
                         <Button
                             variant={"outline"}
-                            className={cn("w-full sm:w-[300px] justify-start text-left font-normal", !dates && "text-muted-foreground", viewMode === 'all' && 'opacity-50 cursor-not-allowed')}
+                            className={cn("w-full sm:w-[300px] justify-start text-left font-normal", !date && "text-muted-foreground")}
                         >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dates && dates.length > 0 ? (
-                                `${dates.length} date(s) selected`
-                            ) : (
-                                <span>Pick one or more dates</span>
+                            {date ? format(date, "PPP") : (
+                                <span>Pick a date</span>
                             )}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
                         <Calendar
                             initialFocus
-                            mode="multiple"
-                            min={0}
-                            selected={dates}
-                            onSelect={setDates}
-                            numberOfMonths={2}
+                            mode="single"
+                            selected={date}
+                            onSelect={setDate}
+                            disabled={(d) => d > new Date() || d < new Date("1900-01-01")}
                         />
                     </PopoverContent>
                 </Popover>
-                <Button onClick={() => handleFetchRequest('filtered')} disabled={loading || viewMode === 'all'} className="w-full sm:w-auto">
-                    {loading && viewMode === 'filtered' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button onClick={fetchSales} disabled={loading} className="w-full sm:w-auto">
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Generate Report
-                </Button>
-                <Button onClick={() => handleFetchRequest('all')} disabled={loading} variant="secondary" className="w-full sm:w-auto">
-                     {loading && viewMode === 'all' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    All Sales
                 </Button>
             </div>
 
@@ -261,6 +223,8 @@ export function SalesClient() {
                     )}
                     {sortedDateKeys.map(dateKey => {
                         const sales = salesByDate[dateKey];
+                         if (!sales) return null;
+
                         const totals = sales.reduce((acc, sale) => {
                             sale.items.forEach(item => {
                                 if (!item.returned) {
@@ -278,8 +242,8 @@ export function SalesClient() {
                                     <CardTitle>Sales for {format(new Date(dateKey), 'PPP')}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                         <Card>
+                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        <Card>
                                             <CardHeader><CardTitle>Total Items Sold</CardTitle></CardHeader>
                                             <CardContent><p className="text-2xl font-bold">{totals.totalItems}</p></CardContent>
                                         </Card>
@@ -380,6 +344,5 @@ export function SalesClient() {
             )}
         </div>
     );
-}
 
     
