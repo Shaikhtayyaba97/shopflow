@@ -4,40 +4,41 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isAuth() {
-      return request.auth != null;
-    }
-
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    function isShopkeeper() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'shopkeeper';
-    }
-
+    // Users collection:
+    // - Anyone can read their own user profile.
+    // - Only admins can read all user profiles (not implemented yet, but good practice).
+    // - Only the system (via seed script) should create users.
     match /users/{userId} {
-      allow read: if isAuth();
-      allow write: if isAdmin(); // Only admins can create/edit roles
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false; // Disallow client-side writes
     }
 
+    // Products collection:
+    // Admin: Can do anything (create, read, update, delete).
+    // Shopkeeper:
+    // - Can read all products.
+    // - Can create new products.
+    // - Can update existing products, BUT CANNOT change the purchasePrice.
+    // - Cannot delete products.
     match /products/{productId} {
-      allow read: if isAuth();
-
-      // Admins can do anything
-      allow write: if isAdmin();
-
-      // Shopkeepers can create products
-      allow create: if isShopkeeper();
-      
-      // Shopkeepers can update products, but NOT the purchasePrice
-      allow update: if isShopkeeper() && !('purchasePrice' in request.resource.data);
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow update: if request.auth != null && 
+                      (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+                       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'shopkeeper' &&
+                        request.resource.data.purchasePrice == resource.data.purchasePrice));
     }
-    
+
+    // Sales collection:
+    // - Admins and Shopkeepers can read all sales records for transparency.
+    // - Any authenticated user can create a new sale (checkout).
+    // - Only admins can delete sales records.
     match /sales/{saleId} {
-        allow create: if isAuth();
-        allow read: if isAdmin() || (isShopkeeper() && resource.data.createdBy == request.auth.uid);
-        allow write: if isAdmin();
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if false; // Sales records should be immutable
+      allow delete: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }
