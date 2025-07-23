@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, runTransaction, doc, onSnapshot, Timestamp, orderBy } from 'firebase/firestore';
+import { useState, useRef, useEffect, KeyboardEvent, useCallback } from 'react';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, runTransaction, doc, onSnapshot, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Product, CartItem, Sale } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,20 @@ import { Badge } from '../ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { format, startOfDay, endOfDay } from 'date-fns';
+
+// Debounce hook
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 export function BillingClient() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,6 +47,76 @@ export function BillingClient() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  const handleSearch = useCallback(async (term: string) => {
+    if (term.trim().length < 2 && !/^\d+$/.test(term)) { // Allow single-digit barcode search but require 2+ for name
+      setSearchResults([]);
+      return;
+    }
+    setIsSearching(true);
+    
+    const productsRef = collection(db, 'products');
+    const barcodeQuery = query(productsRef, where('barcode', '==', term));
+    // Updated to be case-insensitive by searching a range.
+    const nameQuery = query(
+      productsRef, 
+      where('name', '>=', term), 
+      where('name', '<=', term + '\uf8ff'),
+      limit(10) // Limit suggestions for performance
+    );
+
+    try {
+        const [barcodeSnapshot, nameSnapshot] = await Promise.all([getDocs(barcodeQuery), getDocs(nameQuery)]);
+        const products: Product[] = [];
+        const productIds = new Set<string>();
+
+        barcodeSnapshot.forEach((doc) => {
+            if(!productIds.has(doc.id)){
+                products.push({ id: doc.id, ...doc.data() } as Product);
+                productIds.add(doc.id);
+            }
+        });
+
+        // If barcode scan adds an item, we are done.
+        if (products.length === 1 && products[0].barcode === term) {
+            addToCart(products[0]);
+            setSearchTerm('');
+            setSearchResults([]);
+            setIsSearching(false);
+            return;
+        }
+
+        nameSnapshot.forEach((doc) => {
+            if(!productIds.has(doc.id)){
+                products.push({ id: doc.id, ...doc.data() } as Product);
+                productIds.add(doc.id);
+            }
+        });
+        
+        setSearchResults(products);
+
+        if (products.length === 0) {
+           if (searchTerm) { // Only show toast if user actually searched
+             toast({ variant: 'destructive', title: 'Not Found', description: 'No product found with that barcode or name.' });
+           }
+        }
+    } catch (error) {
+      console.error("Error searching products:", error);
+      toast({ variant: 'destructive', title: 'Search Error', description: 'Could not fetch products.' });
+    } finally {
+      setIsSearching(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (debouncedSearchTerm) {
+      handleSearch(debouncedSearchTerm);
+    } else {
+      setSearchResults([]);
+    }
+  }, [debouncedSearchTerm, handleSearch]);
 
   useEffect(() => {
     searchInputRef.current?.focus();
@@ -86,56 +170,6 @@ export function BillingClient() {
         return () => unsubscribe();
     }, []);
 
-  const handleSearch = async (term: string) => {
-    if (!term.trim()) {
-      setSearchResults([]);
-      return;
-    }
-    setIsSearching(true);
-    
-    const productsRef = collection(db, 'products');
-    const barcodeQuery = query(productsRef, where('barcode', '==', term));
-    const nameQuery = query(productsRef, where('name', '>=', term), where('name', '<=', term + '\uf8ff'));
-
-    try {
-        const [barcodeSnapshot, nameSnapshot] = await Promise.all([getDocs(barcodeQuery), getDocs(nameQuery)]);
-        const products: Product[] = [];
-        const productIds = new Set<string>();
-
-        barcodeSnapshot.forEach((doc) => {
-            if(!productIds.has(doc.id)){
-                products.push({ id: doc.id, ...doc.data() } as Product);
-                productIds.add(doc.id);
-            }
-        });
-
-        if (products.length === 0) { // If barcode scan yields no results, try by name
-            nameSnapshot.forEach((doc) => {
-                if(!productIds.has(doc.id)){
-                    products.push({ id: doc.id, ...doc.data() } as Product);
-                    productIds.add(doc.id);
-                }
-            });
-        }
-        
-        setSearchResults(products);
-        if (products.length === 1 && products[0].barcode === term) {
-            addToCart(products[0]);
-            setSearchTerm('');
-            setSearchResults([]);
-        } else if (products.length === 0) {
-            toast({ variant: 'destructive', title: 'Not Found', description: 'No product found with that barcode or name.' });
-        }
-
-
-    } catch (error) {
-      console.error("Error searching products:", error);
-      toast({ variant: 'destructive', title: 'Search Error', description: 'Could not fetch products.' });
-    } finally {
-      setIsSearching(false);
-    }
-  };
-  
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -217,18 +251,9 @@ export function BillingClient() {
 
     try {
         await runTransaction(db, async (transaction) => {
-            const saleData = {
-                items: [] as any[],
-                totalAmount: totalAmount,
-                createdBy: userProfile.uid,
-                createdByName: userProfile.email,
-                createdByRole: userProfile.role,
-                createdAt: serverTimestamp()
-            };
-
-            const productUpdates = [];
             const productRefs = cart.map(item => doc(db, 'products', item.id));
             const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+            const productUpdates: { ref: any; newQuantity: number }[] = [];
 
             for (let i = 0; i < cart.length; i++) {
                 const item = cart[i];
@@ -245,16 +270,24 @@ export function BillingClient() {
 
                 const newQuantity = currentQuantity - item.quantityInCart;
                 productUpdates.push({ ref: productRefs[i], newQuantity });
-                
-                saleData.items.push({
+            }
+
+            // All reads are done. Now perform writes.
+            const saleData = {
+                items: cart.map(item => ({
                     productId: item.id,
                     name: item.name,
                     quantity: item.quantityInCart,
                     sellingPrice: item.sellingPrice,
                     purchasePrice: item.purchasePrice || 0
-                });
-            }
-
+                })),
+                totalAmount: totalAmount,
+                createdBy: userProfile.uid,
+                createdByName: userProfile.email,
+                createdByRole: userProfile.role,
+                createdAt: serverTimestamp()
+            };
+            
             for (const update of productUpdates) {
                 transaction.update(update.ref, { quantity: update.newQuantity });
             }
@@ -265,6 +298,8 @@ export function BillingClient() {
         
         toast({ title: 'Checkout Successful', description: 'Sale has been recorded and stock updated.' });
         setCart([]);
+        setSearchTerm('');
+        setSearchResults([]);
         searchInputRef.current?.focus();
     } catch (error: any) {
         console.error("Error during checkout:", error);
@@ -296,9 +331,7 @@ export function BillingClient() {
                           ref={searchInputRef}
                           placeholder="Search by name or scan a barcode..."
                           value={searchTerm}
-                          onChange={(e) => {
-                              setSearchTerm(e.target.value);
-                          }}
+                          onChange={(e) => setSearchTerm(e.target.value)}
                           onKeyDown={handleKeyDown}
                           className="pl-10"
                           disabled={isCheckingOut}
@@ -333,8 +366,8 @@ export function BillingClient() {
               </div>
 
               {isSearching && <Loader2 className="animate-spin mx-auto mt-4" />}
-              {!isSearching && searchResults.length > 0 && (
-                  <div className="border rounded-md max-h-60 overflow-y-auto">
+              {!isSearching && searchResults.length > 0 && searchTerm && (
+                  <div className="border rounded-md max-h-60 overflow-y-auto absolute z-10 bg-card w-[calc(100%-4rem)]">
                       {searchResults.map(product => (
                           <div key={product.id} onClick={() => addToCart(product)} className="p-2 hover:bg-accent hover:text-accent-foreground cursor-pointer flex justify-between">
                               <div>
@@ -352,7 +385,7 @@ export function BillingClient() {
                   </div>
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-4 pt-4">
                   <h3 className="text-lg font-semibold">Current Bill</h3>
                   <div className="border rounded-md">
                       <Table>
@@ -462,5 +495,3 @@ export function BillingClient() {
       </div>
   );
 }
-
-    
