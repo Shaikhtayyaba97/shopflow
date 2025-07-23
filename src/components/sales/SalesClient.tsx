@@ -64,6 +64,11 @@ export function SalesClient() {
                 where('createdAt', '<=', Timestamp.fromDate(endOfDay(toDate))),
                 orderBy('createdAt', 'desc')
             ];
+            
+            if(userProfile.role !== 'admin') {
+                constraints.unshift(where('createdBy', '==', userProfile.uid));
+            }
+
 
             const q = query(collection(db, 'sales'), ...constraints);
             const querySnapshot = await getDocs(q);
@@ -90,7 +95,7 @@ export function SalesClient() {
                     description: 'A Firestore index is required for this query. Please check the browser console for a link to create it automatically.',
                     duration: 15000
                 });
-            } else {
+             } else {
                 toast({
                     variant: 'destructive',
                     title: 'Error',
@@ -119,8 +124,13 @@ export function SalesClient() {
                 const saleRef = doc(db, 'sales', saleId);
                 const productRef = doc(db, 'products', productId);
 
+                // --- READS FIRST ---
                 const saleDoc = await transaction.get(saleRef);
-                if (!saleDoc.exists()) throw new Error("Sale not found.");
+                const productDoc = await transaction.get(productRef);
+
+                if (!saleDoc.exists()) {
+                    throw new Error("Sale not found.");
+                }
                 
                 const saleData = saleDoc.data() as Sale;
                 const newItems = [...saleData.items];
@@ -129,6 +139,7 @@ export function SalesClient() {
                     throw new Error("Item already returned.");
                 }
 
+                // --- WRITES LAST ---
                 newItems[itemIndex] = {
                     ...newItems[itemIndex],
                     returned: true,
@@ -138,7 +149,6 @@ export function SalesClient() {
                 
                 transaction.update(saleRef, { items: newItems });
                 
-                const productDoc = await transaction.get(productRef);
                 if (productDoc.exists()) {
                     const newQuantity = (productDoc.data().quantity || 0) + quantity;
                     transaction.update(productRef, { quantity: newQuantity });
