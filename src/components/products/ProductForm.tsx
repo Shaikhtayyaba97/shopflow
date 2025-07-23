@@ -304,5 +304,3 @@ export function ProductForm({ onProductAdded, onProductUpdated, productToEdit, i
 
   return <div className="max-w-lg">{formContent}</div>;
 }
-
-    

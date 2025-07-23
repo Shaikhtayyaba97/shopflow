@@ -158,7 +158,8 @@ export function BillingClient() {
       }
     };
     getCameraPermission();
-  }, [isScannerOpen, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isScannerOpen]);
 
     useEffect(() => {
         setLoadingTodaysSales(true);
@@ -534,5 +535,3 @@ export function BillingClient() {
       </div>
   );
 }
-
-    
