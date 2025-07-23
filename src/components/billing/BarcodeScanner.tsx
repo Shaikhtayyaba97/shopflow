@@ -13,27 +13,23 @@ export function BarcodeScanner({ onScan, videoRef }: BarcodeScannerProps) {
   
   useEffect(() => {
     const codeReader = new BrowserMultiFormatReader();
-    let timeout: NodeJS.Timeout;
-
+    
     if (videoRef.current) {
-        // A small delay to ensure the video stream is ready
-        timeout = setTimeout(() => {
-            if(videoRef.current) {
-                codeReader.decodeFromVideoElement(videoRef.current, (result, err) => {
-                    if (result) {
-                        onScan(result.getText());
-                        codeReader.reset();
-                    }
-                    if (err && !(err instanceof NotFoundException)) {
-                        console.error('Barcode scanning error:', err);
-                    }
-                }).catch(err => console.error("DecodeFromVideoDevice error", err));
-            }
-        }, 500);
+      codeReader.decodeFromVideoElement(videoRef.current, (result, err) => {
+        if (result) {
+            onScan(result.getText());
+        }
+        if (err && !(err instanceof NotFoundException)) {
+            console.error('Barcode scanning error:', err);
+        }
+      }).catch(err => {
+          // Don't log "Video stream has ended" error, it's expected on dialog close.
+          if(err.message.includes("Video stream has ended")) return;
+          console.error("DecodeFromVideoDevice error", err)
+      });
     }
     
     return () => {
-        clearTimeout(timeout);
         codeReader.reset();
     };
   }, [onScan, videoRef]);

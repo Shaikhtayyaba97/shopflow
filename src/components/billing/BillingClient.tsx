@@ -192,11 +192,11 @@ export function BillingClient() {
     }
   };
   
-  const handleBarcodeScanned = (barcode: string) => {
+  const handleBarcodeScanned = useCallback((barcode: string) => {
     setIsScannerOpen(false);
     setSearchTerm(barcode);
     handleSearch(barcode);
-  };
+  }, [handleSearch]);
 
   const addToCart = (product: Product) => {
     if (product.quantity <= 0) {
