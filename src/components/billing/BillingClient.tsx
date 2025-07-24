@@ -285,19 +285,33 @@ export function BillingClient() {
   }
 
   const handlePrint = (saleId: string) => {
-    const receiptToPrint = document.getElementById(saleId);
-    if (receiptToPrint) {
-        // Temporarily change class for printing
-        const originalClassName = receiptToPrint.className;
-        receiptToPrint.className = 'printable-area';
+    const receiptContent = document.getElementById(saleId);
+    if (!receiptContent) {
+        toast({ variant: 'destructive', title: 'Print Error', description: 'Could not find the receipt content.' });
+        return;
+    }
+
+    const originalPage = document.body.innerHTML;
+    const receiptHTML = receiptContent.innerHTML;
+
+    try {
+        document.body.innerHTML = `<div class="printable-area">${receiptHTML}</div>`;
+        
         window.print();
-        // Revert class after print dialog is closed
-        receiptToPrint.className = originalClassName;
-        toast({ title: "Print Initiated", description: "Receipt sent to printer." });
-    } else {
-        toast({ variant: 'destructive', title: "Print Error", description: "Could not find the receipt to print." });
+        
+        toast({ title: 'Print Initiated', description: 'Receipt sent to printer.' });
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Print Error', description: 'An error occurred while trying to print.' });
+        console.error(e);
+    } finally {
+        document.body.innerHTML = originalPage;
+        // The BillingClient component will re-render due to state changes if any,
+        // so we need to re-attach any event listeners or re-initialize state if they get lost.
+        // A simple page reload is a robust way to ensure everything is back to normal.
+        window.location.reload();
     }
   };
+
 
   const { todaysTotalRevenue, todaysTotalItems } = todaysSales.reduce((acc, sale) => {
         sale.items.forEach(item => {
@@ -310,9 +324,9 @@ export function BillingClient() {
     }, { todaysTotalRevenue: 0, todaysTotalItems: 0 });
 
   return (
-      <div className="space-y-8 no-print">
+      <div className="space-y-8">
           {/* Top Section: New Bill */}
-          <div className="space-y-4">
+          <div className="space-y-4 no-print">
               <h3 className="text-xl font-semibold">New Bill / Customer</h3>
               <div className="flex gap-2">
                   <div className="relative w-full">
@@ -398,7 +412,7 @@ export function BillingClient() {
           </div>
           
           {/* Bottom Section: Today's Sales Summary */}
-          <div className="space-y-4">
+          <div className="space-y-4 no-print">
               <Card>
                   <CardHeader>
                       <div className="flex items-center gap-2">
@@ -428,8 +442,8 @@ export function BillingClient() {
                               <p className="text-center text-muted-foreground py-8">No sales yet today.</p>
                            ) : (
                                todaysSales.map(sale => (
-                                <div key={sale.id} id={sale.id} className="border rounded-lg p-4" >
-                                    <div>
+                                <div key={sale.id} className="border rounded-lg p-4" >
+                                    <div id={sale.id}>
                                         <div className="flex justify-between items-center mb-2">
                                             <div>
                                                 <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>
