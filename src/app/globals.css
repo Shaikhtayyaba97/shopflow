@@ -61,7 +61,7 @@
 
 @media print {
   @page {
-    size: 58mm auto; /* Set page size for 2-inch printers */
+    size: 58mm auto;
     margin: 0;
   }
 
@@ -78,8 +78,20 @@
   
   .printable-area {
     display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
     font-size: 8pt;
     color: black;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+  
+  .printable-area, .printable-area * {
+    visibility: visible;
   }
 
   .printable-area table,
@@ -110,14 +122,5 @@
     margin: 0;
     padding: 0;
     color: black !important;
-  }
-
-  /* Hide elements that shouldn't be on a receipt, like buttons */
-  .printable-area button {
-      display: none !important;
-  }
-
-  .printable-area .flex.justify-between.items-center.mb-2 {
-      display: block !important;
   }
 }
