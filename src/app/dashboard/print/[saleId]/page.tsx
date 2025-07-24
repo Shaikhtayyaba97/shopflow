@@ -13,7 +13,6 @@ import type { Sale } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-
 export default function PrintReceiptPage() {
     const { saleId } = useParams();
     const [sale, setSale] = useState<Sale | null>(null);
@@ -69,7 +68,7 @@ export default function PrintReceiptPage() {
 
     return (
         <>
-            <div className="printable-area w-[58mm] bg-white p-2 mx-auto my-8 shadow-lg font-mono text-xs">
+            <div className="w-[58mm] bg-white p-2 mx-auto my-8 shadow-lg font-mono text-xs">
                 <div className="text-center text-black">
                     <h1 className="font-bold text-sm">ShopFlow</h1>
                     <p className="text-xs">Your friendly neighborhood store.</p>
@@ -102,9 +101,9 @@ export default function PrintReceiptPage() {
 
                 <Separator className="border-dashed border-black my-1" />
 
-                <div className="flex justify-between font-bold text-xs">
-                    <span className="text-black">Total</span>
-                    <span className="text-black">{sale.totalAmount.toFixed(2)}</span>
+                <div className="flex justify-between font-bold text-xs text-black">
+                    <span>Total</span>
+                    <span>{sale.totalAmount.toFixed(2)}</span>
                 </div>
                  <div className="text-center mt-2">
                     <p className="text-xs text-black">Thank you for your purchase!</p>

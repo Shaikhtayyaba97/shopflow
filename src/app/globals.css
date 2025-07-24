@@ -58,22 +58,13 @@
   }
 }
 
+@page {
+  size: 58mm;
+  margin: 0mm;
+}
+
 @media print {
-  @page {
-    size: 58mm;
-    margin: 0mm;
-  }
-
-  body {
-    background-color: #fff;
-  }
-
-  .no-print,
-  .no-print * {
+  .no-print {
     display: none !important;
-  }
-  
-  .printable-area {
-    display: block !important;
   }
 }
