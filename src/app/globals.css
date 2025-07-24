@@ -71,20 +71,6 @@
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
-
-  .no-print {
-    display: none !important;
-  }
-  
-  .printable-area {
-    display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    font-size: 8pt;
-    color: black;
-  }
   
   body * {
     visibility: hidden;
@@ -92,6 +78,19 @@
   
   .printable-area, .printable-area * {
     visibility: visible;
+  }
+  
+  .printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    font-size: 8pt;
+    color: black;
+  }
+
+  .no-print {
+    display: none !important;
   }
 
   .printable-area table,
