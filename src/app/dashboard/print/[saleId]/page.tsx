@@ -10,8 +10,6 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import type { Sale } from '@/types';
-import { Separator } from '@/components/ui/separator';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function PrintReceiptPage() {
     const { saleId } = useParams();
@@ -49,7 +47,6 @@ export default function PrintReceiptPage() {
             const printWindow = window.open('', '', 'height=600,width=800');
             if (printWindow) {
                 printWindow.document.write('<html><head><title>Print Receipt</title>');
-                // Simple styling for the print window
                 printWindow.document.write(`
                     <style>
                         @page { size: 58mm; margin: 0; }
@@ -62,7 +59,7 @@ export default function PrintReceiptPage() {
                         .text-right { text-align: right; }
                         .font-bold { font-weight: bold; }
                         .text-sm { font-size: 10pt; }
-                        hr { border: none; border-top: 1px dashed black; margin: 2px 0; }
+                        hr { border: none; border-top: 1px dashed black; margin: 4px 0; }
                     </style>
                 `);
                 printWindow.document.write('</head><body>');
@@ -70,8 +67,17 @@ export default function PrintReceiptPage() {
                 printWindow.document.write('</body></html>');
                 printWindow.document.close();
                 printWindow.focus();
-                printWindow.print();
-                printWindow.close();
+                
+                setTimeout(() => {
+                    try {
+                        printWindow.print();
+                        printWindow.close();
+                    } catch (e) {
+                        console.error("Print failed:", e);
+                        toast({ variant: 'destructive', title: 'Print Error', description: 'Could not print. Please check console for details.' });
+                    }
+                }, 250);
+
             } else {
                 toast({ variant: 'destructive', title: 'Print Error', description: 'Could not open print window. Please disable popup blockers.' });
             }
@@ -103,7 +109,7 @@ export default function PrintReceiptPage() {
     // This is the visible component on the page
     return (
         <div className="bg-gray-100 min-h-screen py-8">
-            <div id="receipt-container" className="w-[58mm] bg-white p-2 mx-auto my-8 shadow-lg">
+            <div className="w-[58mm] bg-white p-1 mx-auto my-8 shadow-lg">
                 <div id="receipt-content">
                     <div className="text-center text-black">
                         <h1 className="font-bold text-sm">ShopFlow</h1>
