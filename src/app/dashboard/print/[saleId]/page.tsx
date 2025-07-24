@@ -50,7 +50,7 @@ export default function PrintReceiptPage() {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center">
+            <div className="flex h-screen items-center justify-center bg-gray-100">
                 <Loader2 className="h-8 w-8 animate-spin" />
             </div>
         );
@@ -58,7 +58,7 @@ export default function PrintReceiptPage() {
 
     if (!sale) {
         return (
-            <div className="flex h-screen items-center justify-center">
+            <div className="flex h-screen items-center justify-center bg-gray-100">
                 <div className="bg-white p-4 rounded shadow-md text-center">
                     <p>Sale not found.</p>
                     <Button onClick={() => router.back()} className="mt-4 no-print">Go Back</Button>
@@ -68,7 +68,7 @@ export default function PrintReceiptPage() {
     }
 
     return (
-        <div className="bg-gray-100 flex flex-col items-center justify-center min-h-screen py-8">
+        <div className="bg-gray-100 flex flex-col items-center justify-start min-h-screen py-8">
             <div className="printable-area w-[58mm] bg-white p-2 shadow-lg">
                 <div className="text-center text-black">
                     <h1 className="font-bold text-sm">ShopFlow</h1>
@@ -82,9 +82,9 @@ export default function PrintReceiptPage() {
                 <Table className="text-xs">
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="h-auto p-1 text-black">Item</TableHead>
-                            <TableHead className="h-auto p-1 text-right text-black">Qty</TableHead>
-                            <TableHead className="h-auto p-1 text-right text-black">Total</TableHead>
+                            <TableHead className="h-auto p-1 text-black font-bold">Item</TableHead>
+                            <TableHead className="h-auto p-1 text-right text-black font-bold">Qty</TableHead>
+                            <TableHead className="h-auto p-1 text-right text-black font-bold">Total</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>

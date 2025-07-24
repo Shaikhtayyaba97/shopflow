@@ -64,20 +64,23 @@
     size: 58mm;
     margin: 0;
   }
-
   body {
     margin: 0;
     padding: 0;
-    background-color: #fff;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
   }
-  
-  .no-print {
+  .no-print, .no-print * {
     display: none !important;
   }
-  
+  body * {
+    visibility: hidden;
+  }
+  .printable-area, .printable-area * {
+    visibility: visible;
+  }
   .printable-area {
-    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
   }
 }
