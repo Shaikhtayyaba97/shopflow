@@ -58,7 +58,7 @@
   }
 }
 
-/* Print-specific styles are moved outside of any @layer blocks */
+/* Print-specific styles for POS receipts */
 @media print {
   @page {
     size: 58mm auto; /* Standard POS receipt paper width for 2-inch printers */
@@ -70,14 +70,17 @@
     padding: 0;
   }
 
+  /* Hide everything by default */
   body * {
     visibility: hidden;
   }
-
+  
+  /* Only show the printable area and its contents */
   .printable-area, .printable-area * {
     visibility: visible;
   }
 
+  /* Position the printable area at the top */
   .printable-area {
     position: absolute;
     left: 0;
@@ -85,8 +88,39 @@
     width: 100%;
     font-size: 8pt; /* Smaller font for narrow receipts */
     color: black;
+    padding: 2mm;
+    box-sizing: border-box;
   }
-  
+
+  /* Ensure tables and text are compact */
+  .printable-area table,
+  .printable-area th,
+  .printable-area td {
+    padding: 0;
+    border: none;
+    text-align: left;
+  }
+
+  .printable-area th,
+  .printable-area td {
+    padding: 1mm 0;
+  }
+
+  .printable-area .text-right {
+    text-align: right;
+  }
+
+  .printable-area h1,
+  .printable-area h2,
+  .printable-area h3,
+  .printable-area p,
+  .printable-area div {
+    margin: 0;
+    padding: 0;
+    color: black !important;
+  }
+
+  /* Hide elements that should not be printed */
   .no-print {
     display: none !important;
   }
