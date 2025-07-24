@@ -61,7 +61,7 @@
 /* Print-specific styles are moved outside of any @layer blocks */
 @media print {
   @page {
-    size: 80mm auto; /* Standard POS receipt paper width */
+    size: 58mm auto; /* Standard POS receipt paper width for 2-inch printers */
     margin: 0;
   }
 
