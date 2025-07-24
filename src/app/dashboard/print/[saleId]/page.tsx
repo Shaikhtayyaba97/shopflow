@@ -50,7 +50,7 @@ export default function PrintReceiptPage() {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gray-100">
+            <div className="flex h-screen items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
             </div>
         );
@@ -58,7 +58,7 @@ export default function PrintReceiptPage() {
 
     if (!sale) {
         return (
-            <div className="flex h-screen items-center justify-center bg-gray-100">
+            <div className="flex h-screen items-center justify-center">
                 <div className="bg-white p-4 rounded shadow-md text-center">
                     <p>Sale not found.</p>
                     <Button onClick={() => router.back()} className="mt-4 no-print">Go Back</Button>
@@ -68,8 +68,8 @@ export default function PrintReceiptPage() {
     }
 
     return (
-        <div className="bg-gray-100 flex flex-col items-center justify-start min-h-screen py-8">
-            <div className="printable-area w-[58mm] bg-white p-2 shadow-lg">
+        <>
+            <div className="printable-area w-[58mm] bg-white p-2 mx-auto my-8 shadow-lg font-mono text-xs">
                 <div className="text-center text-black">
                     <h1 className="font-bold text-sm">ShopFlow</h1>
                     <p className="text-xs">Your friendly neighborhood store.</p>
@@ -82,17 +82,17 @@ export default function PrintReceiptPage() {
                 <Table className="text-xs">
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="h-auto p-1 text-black font-bold">Item</TableHead>
-                            <TableHead className="h-auto p-1 text-right text-black font-bold">Qty</TableHead>
-                            <TableHead className="h-auto p-1 text-right text-black font-bold">Total</TableHead>
+                            <TableHead className="h-auto p-0 text-black font-bold">Item</TableHead>
+                            <TableHead className="h-auto p-0 text-center text-black font-bold">Qty</TableHead>
+                            <TableHead className="h-auto p-0 text-right text-black font-bold">Total</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {sale.items.map((item, index) => (
                             <TableRow key={index} className={`border-b-0 ${item.returned ? 'line-through' : ''}`}>
-                                <TableCell className="p-1 font-mono text-black">{item.name}</TableCell>
-                                <TableCell className="p-1 text-right font-mono text-black">{item.quantity}</TableCell>
-                                <TableCell className="p-1 text-right font-mono text-black">
+                                <TableCell className="p-0 font-mono text-black">{item.name}</TableCell>
+                                <TableCell className="p-0 text-center font-mono text-black">{item.quantity}</TableCell>
+                                <TableCell className="p-0 text-right font-mono text-black">
                                     {(item.sellingPrice * item.quantity).toFixed(2)}
                                 </TableCell>
                             </TableRow>
@@ -111,7 +111,7 @@ export default function PrintReceiptPage() {
                 </div>
             </div>
 
-            <div className="no-print mt-6 flex gap-4">
+            <div className="no-print mt-6 flex gap-4 justify-center">
                  <Button variant="outline" onClick={() => router.push('/dashboard/billing')}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Billing
@@ -121,6 +121,6 @@ export default function PrintReceiptPage() {
                     Print Receipt
                 </Button>
             </div>
-        </div>
+        </>
     );
 }
