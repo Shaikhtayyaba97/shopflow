@@ -60,19 +60,28 @@
 
 @layer utilities {
   @media print {
-    body * {
-      visibility: hidden;
-    }
-    .printable-area, .printable-area * {
-      visibility: visible;
+    body {
+        margin: 0;
+        padding: 0;
     }
     .printable-area {
+      visibility: visible !important;
       position: absolute;
       left: 0;
       top: 0;
-      width: 100%;
+      width: 80mm; /* Common POS receipt width */
+      font-size: 10pt; /* Adjust font size for receipts */
       padding: 1rem;
-      font-size: 12px;
+      background: white;
+      color: black;
+    }
+    .printable-area *,
+    .printable-area *::before,
+    .printable-area *::after {
+      visibility: visible !important;
+    }
+    body > *:not(.printable-area) {
+      display: none !important;
     }
     .no-print {
       display: none !important;
