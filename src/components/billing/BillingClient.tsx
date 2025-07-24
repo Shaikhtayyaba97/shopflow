@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from '../ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { Separator } from '../ui/separator';
+import Link from 'next/link';
 
 // Debounce hook
 function useDebounce(value: string, delay: number) {
@@ -284,22 +285,6 @@ export function BillingClient() {
     }
   }
 
-  const handlePrint = (saleId: string) => {
-    const receiptContent = document.getElementById(saleId);
-    if (!receiptContent) {
-        toast({ variant: 'destructive', title: 'Print Error', description: 'Could not find the receipt content.' });
-        return;
-    }
-    try {
-        window.print();
-        toast({ title: 'Print Initiated', description: 'Receipt sent to printer.' });
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'Print Error', description: 'An error occurred while trying to print.' });
-        console.error(e);
-    }
-  };
-
-
   const { todaysTotalRevenue, todaysTotalItems } = todaysSales.reduce((acc, sale) => {
         sale.items.forEach(item => {
             if (!item.returned) {
@@ -430,43 +415,43 @@ export function BillingClient() {
                            ) : (
                                todaysSales.map(sale => (
                                 <div key={sale.id} className="border rounded-lg p-4" >
-                                    <div id={sale.id} className="printable-area">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <div>
-                                                <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {format(sale.createdAt.toDate(), 'p')} by <span className='capitalize'>{sale.createdByRole}</span>
-                                                </p>
-                                            </div>
-                                             <div className="flex items-center gap-2 no-print">
-                                                <Badge variant="outline">Total: {sale.totalAmount.toFixed(2)}</Badge>
-                                                <Button size="icon" variant="ghost" onClick={() => handlePrint(sale.id)}>
-                                                  <Printer className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                                    <div className="flex justify-between items-center mb-2">
+                                        <div>
+                                            <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {format(sale.createdAt.toDate(), 'p')} by <span className='capitalize'>{sale.createdByRole}</span>
+                                            </p>
                                         </div>
-                                        <Separator />
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Item</TableHead>
-                                                    <TableHead>Qty</TableHead>
-                                                    <TableHead className="text-right">Price</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {sale.items.map((item, index) => (
-                                                    <TableRow key={index} className={item.returned ? 'bg-muted/50' : ''}>
-                                                        <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
-                                                        <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
-                                                        <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
-                                                            {(item.sellingPrice * item.quantity).toFixed(2)}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                         <div className="flex items-center gap-2 no-print">
+                                            <Badge variant="outline">Total: {sale.totalAmount.toFixed(2)}</Badge>
+                                            <Button asChild size="icon" variant="ghost">
+                                                <Link href={`/dashboard/print/${sale.id}`} target="_blank">
+                                                    <Printer className="h-4 w-4" />
+                                                </Link>
+                                            </Button>
+                                        </div>
                                     </div>
+                                    <Separator />
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Item</TableHead>
+                                                <TableHead>Qty</TableHead>
+                                                <TableHead className="text-right">Price</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {sale.items.map((item, index) => (
+                                                <TableRow key={index} className={item.returned ? 'bg-muted/50' : ''}>
+                                                    <TableCell className={item.returned ? 'line-through' : ''}>{item.name}</TableCell>
+                                                    <TableCell className={item.returned ? 'line-through' : ''}>{item.quantity}</TableCell>
+                                                    <TableCell className={`text-right ${item.returned ? 'line-through' : ''}`}>
+                                                        {(item.sellingPrice * item.quantity).toFixed(2)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 </div>
                                ))
                            )}
