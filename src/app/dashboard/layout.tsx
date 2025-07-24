@@ -23,6 +23,7 @@ export default function DashboardLayout({
 }) {
   const { user, loading, userProfile } = useAuth();
   const router = useRouter();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -53,7 +54,7 @@ export default function DashboardLayout({
       <AppSidebar userProfile={userProfile} />
       <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
-          <Sheet>
+          <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button size="icon" variant="outline" className="sm:hidden">
                 <Menu className="h-5 w-5" />
@@ -65,6 +66,7 @@ export default function DashboardLayout({
                   <SheetTitle>
                      <Link
                         href="/dashboard"
+                        onClick={() => setIsMobileMenuOpen(false)}
                         className="group flex items-center gap-2 text-lg font-semibold"
                       >
                         <Package className="h-6 w-6 transition-all group-hover:scale-110" />
@@ -76,7 +78,7 @@ export default function DashboardLayout({
                   </SheetDescription>
               </SheetHeader>
               <nav className="grid gap-6 text-lg font-medium">
-                <AppSidebar.MobileLinks userProfile={userProfile} />
+                <AppSidebar.MobileLinks userProfile={userProfile} onLinkClick={() => setIsMobileMenuOpen(false)} />
               </nav>
             </SheetContent>
           </Sheet>

@@ -24,7 +24,7 @@ import type { UserProfile } from "@/types";
 import { cn } from "@/lib/utils";
 
 
-const NavLink = ({ href, icon: Icon, label, isMobile = false }: { href: string; icon: React.ElementType; label: string; isMobile?: boolean }) => {
+const NavLink = ({ href, icon: Icon, label, isMobile = false, onClick }: { href: string; icon: React.ElementType; label: string; isMobile?: boolean; onClick?: () => void; }) => {
     const pathname = usePathname();
     const isActive = pathname.startsWith(href) && (href !== '/dashboard' || pathname === '/dashboard');
 
@@ -32,6 +32,7 @@ const NavLink = ({ href, icon: Icon, label, isMobile = false }: { href: string; 
         return (
              <Link
                 href={href}
+                onClick={onClick}
                 className={cn(
                     "flex items-center gap-4 px-2.5",
                     isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -62,14 +63,14 @@ const NavLink = ({ href, icon: Icon, label, isMobile = false }: { href: string; 
 };
 
 
-const MobileLinks = ({ userProfile }: { userProfile: UserProfile }) => (
+const MobileLinks = ({ userProfile, onLinkClick }: { userProfile: UserProfile, onLinkClick: () => void }) => (
     <>
-        <NavLink href="/dashboard" icon={Home} label="Dashboard" isMobile />
-        <NavLink href="/dashboard/products" icon={Package} label="Products" isMobile />
-        <NavLink href="/dashboard/billing" icon={ScanLine} label="Billing" isMobile />
-        <NavLink href="/dashboard/sales" icon={DollarSign} label="Sales" isMobile />
+        <NavLink href="/dashboard" icon={Home} label="Dashboard" isMobile onClick={onLinkClick} />
+        <NavLink href="/dashboard/products" icon={Package} label="Products" isMobile onClick={onLinkClick} />
+        <NavLink href="/dashboard/billing" icon={ScanLine} label="Billing" isMobile onClick={onLinkClick} />
+        <NavLink href="/dashboard/sales" icon={DollarSign} label="Sales" isMobile onClick={onLinkClick} />
         {userProfile.role === 'admin' && (
-            <NavLink href="/dashboard/reports" icon={LineChart} label="Reports" isMobile />
+            <NavLink href="/dashboard/reports" icon={LineChart} label="Reports" isMobile onClick={onLinkClick} />
         )}
     </>
 )
