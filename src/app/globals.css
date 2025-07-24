@@ -71,10 +71,11 @@
       left: 0;
       top: 0;
       width: 100%;
-      padding: 2rem;
+      padding: 1rem;
+      font-size: 12px;
     }
     .no-print {
-      display: none;
+      display: none !important;
     }
   }
 }

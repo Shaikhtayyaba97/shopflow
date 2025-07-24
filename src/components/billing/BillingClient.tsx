@@ -289,12 +289,9 @@ export function BillingClient() {
   const handlePrint = (saleId: string) => {
     const receiptElement = receiptRefs.current.get(saleId);
     if (receiptElement) {
-        const parent = receiptElement.parentElement;
-        if (parent) {
-            parent.classList.add('printable-area');
-            window.print();
-            parent.classList.remove('printable-area');
-        }
+        receiptElement.classList.add('printable-area');
+        window.print();
+        receiptElement.classList.remove('printable-area');
     }
   };
 
@@ -427,8 +424,8 @@ export function BillingClient() {
                               <p className="text-center text-muted-foreground py-8">No sales yet today.</p>
                            ) : (
                                todaysSales.map(sale => (
-                                <div key={sale.id} >
-                                    <div className="border rounded-lg p-4" ref={(el) => receiptRefs.current.set(sale.id, el)}>
+                                <div key={sale.id} className="border rounded-lg p-4" ref={(el) => receiptRefs.current.set(sale.id, el)}>
+                                    <div>
                                         <div className="flex justify-between items-center mb-2">
                                             <div>
                                                 <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>
