@@ -62,27 +62,23 @@
   @media print {
     @page {
       size: 80mm auto; /* Standard POS receipt paper width */
-      margin: 0;
+      margin: 0 !important;
     }
     body {
-      margin: 0;
-      padding: 0;
-      background: white;
+      visibility: hidden;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    .printable-area, .printable-area * {
+      visibility: visible;
     }
     .printable-area {
-      visibility: visible !important;
       position: absolute;
       left: 0;
       top: 0;
       width: 100%;
       font-size: 10pt;
       color: black;
-    }
-    .printable-area * {
-      visibility: visible !important;
-    }
-    body > *:not(.printable-area) {
-      display: none !important;
     }
     .no-print {
       display: none !important;

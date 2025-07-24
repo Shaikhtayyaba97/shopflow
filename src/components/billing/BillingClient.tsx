@@ -42,9 +42,7 @@ export function BillingClient() {
   const { userProfile } = useAuth();
   const { toast } = useToast();
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const receiptRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
-
-
+  
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   const handleNameSearch = useCallback(async (term: string) => {
@@ -287,22 +285,8 @@ export function BillingClient() {
   }
 
   const handlePrint = (saleId: string) => {
-    try {
-        const receiptElement = receiptRefs.current.get(saleId);
-        if (!receiptElement) {
-            throw new Error("Receipt element not found in DOM.");
-        }
-        
-        receiptElement.classList.add('printable-area');
-        window.print();
-        receiptElement.classList.remove('printable-area');
-
-        toast({ title: "Print Initiated", description: "Receipt sent to printer." });
-
-    } catch(error: any) {
-        toast({ variant: 'destructive', title: 'Print Error', description: error.message || 'Could not initiate printing.' });
-        console.error("Printing failed:", error);
-    }
+    window.print();
+    toast({ title: "Print Initiated", description: "Receipt sent to printer." });
   };
 
   const { todaysTotalRevenue, todaysTotalItems } = todaysSales.reduce((acc, sale) => {
@@ -434,8 +418,8 @@ export function BillingClient() {
                               <p className="text-center text-muted-foreground py-8">No sales yet today.</p>
                            ) : (
                                todaysSales.map(sale => (
-                                <div key={sale.id} className="border rounded-lg p-4" >
-                                    <div ref={(el) => receiptRefs.current.set(sale.id, el)}>
+                                <div key={sale.id} className="border rounded-lg p-4 printable-area" >
+                                    <div>
                                         <div className="flex justify-between items-center mb-2">
                                             <div>
                                                 <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>
@@ -443,9 +427,9 @@ export function BillingClient() {
                                                     {format(sale.createdAt.toDate(), 'p')} by <span className='capitalize'>{sale.createdByRole}</span>
                                                 </p>
                                             </div>
-                                             <div className="flex items-center gap-2">
+                                             <div className="flex items-center gap-2 no-print">
                                                 <Badge variant="outline">Total: {sale.totalAmount.toFixed(2)}</Badge>
-                                                <Button size="icon" variant="ghost" onClick={() => handlePrint(sale.id)} className="no-print">
+                                                <Button size="icon" variant="ghost" onClick={() => handlePrint(sale.id)}>
                                                   <Printer className="h-4 w-4" />
                                                 </Button>
                                             </div>
