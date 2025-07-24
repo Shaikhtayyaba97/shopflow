@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useParams, useRouter } from 'next/navigation';
 import { Loader2, Printer, ArrowLeft } from 'lucide-react';
@@ -12,53 +12,6 @@ import { format } from 'date-fns';
 import type { Sale } from '@/types';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
-// Minimal layout for the print page
-const PrintLayout = ({ children }: { children: React.ReactNode }) => (
-    <>
-      <style jsx global>{`
-        @page {
-          size: 58mm auto;
-          margin: 0;
-        }
-        @media print {
-          body {
-            margin: 0;
-            padding: 0;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          .no-print {
-            display: none !important;
-          }
-          .printable-area {
-            font-size: 8pt;
-            color: black;
-            width: 100%;
-          }
-           .printable-area table,
-           .printable-area th,
-           .printable-area td {
-            padding: 1mm 0;
-            border: none;
-            text-align: left;
-            color: black !important;
-          }
-           .printable-area .text-right {
-             text-align: right;
-           }
-           .printable-area h1, .printable-area h2, .printable-area h3, .printable-area p, .printable-area div, .printable-area span, .printable-area button {
-            margin: 0;
-            padding: 0;
-            color: black !important;
-           }
-        }
-      `}</style>
-      <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
-        {children}
-      </div>
-    </>
-);
 
 
 export default function PrintReceiptPage() {
@@ -90,75 +43,79 @@ export default function PrintReceiptPage() {
             fetchSale();
         }
     }, [saleId, toast]);
+    
+    useEffect(() => {
+      if (sale) {
+        // Automatically trigger print dialog when sale data is loaded
+        handlePrint();
+      }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sale])
 
     const handlePrint = () => {
-        window.print();
+        setTimeout(() => window.print(), 500); // Small delay to ensure content is rendered
     };
 
     if (loading) {
         return (
-            <PrintLayout>
-                <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-8 w-8 animate-spin" />
-                </div>
-            </PrintLayout>
+            <div className="flex h-screen items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
         );
     }
 
     if (!sale) {
         return (
-            <PrintLayout>
+            <div className="flex h-screen items-center justify-center">
                 <div className="bg-white p-4 rounded shadow-md text-center">
                     <p>Sale not found.</p>
-                    <Button onClick={() => router.back()} className="mt-4">Go Back</Button>
+                    <Button onClick={() => router.back()} className="mt-4 no-print">Go Back</Button>
                 </div>
-            </PrintLayout>
+            </div>
         );
     }
 
     return (
-        <PrintLayout>
-            <div className="w-[58mm] bg-white p-2">
-                <div className="printable-area space-y-2">
-                    <div className="text-center">
-                        <h1 className="font-bold text-sm">ShopFlow</h1>
-                        <p>Your friendly neighborhood store.</p>
-                        <p>Date: {format(sale.createdAt.toDate(), 'dd/MM/yyyy p')}</p>
-                        <p>Receipt #: {sale.id.slice(0, 6)}</p>
-                    </div>
+        <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
+            <div className="w-[58mm] bg-white p-2 printable-area">
+                <div className="text-center">
+                    <h1 className="font-bold text-sm">ShopFlow</h1>
+                    <p>Your friendly neighborhood store.</p>
+                    <p>Date: {format(sale.createdAt.toDate(), 'dd/MM/yyyy p')}</p>
+                    <p>Receipt #: {sale.id.slice(0, 6)}</p>
+                </div>
 
-                    <Separator className="border-dashed border-black my-1" />
+                <Separator className="border-dashed border-black my-1" />
 
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Item</TableHead>
-                                <TableHead className="text-right">Qty</TableHead>
-                                <TableHead className="text-right">Total</TableHead>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Item</TableHead>
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {sale.items.map((item, index) => (
+                            <TableRow key={index} className={item.returned ? 'line-through' : ''}>
+                                <TableCell>{item.name}</TableCell>
+                                <TableCell className="text-right">{item.quantity}</TableCell>
+                                <TableCell className="text-right">
+                                    {(item.sellingPrice * item.quantity).toFixed(2)}
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {sale.items.map((item, index) => (
-                                <TableRow key={index} className={item.returned ? 'line-through' : ''}>
-                                    <TableCell>{item.name}</TableCell>
-                                    <TableCell className="text-right">{item.quantity}</TableCell>
-                                    <TableCell className="text-right">
-                                        {(item.sellingPrice * item.quantity).toFixed(2)}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                        ))}
+                    </TableBody>
+                </Table>
 
-                    <Separator className="border-dashed border-black my-1" />
+                <Separator className="border-dashed border-black my-1" />
 
-                    <div className="flex justify-between font-bold">
-                        <span>Total</span>
-                        <span>{sale.totalAmount.toFixed(2)}</span>
-                    </div>
-                     <div className="text-center mt-2">
-                        <p>Thank you for your purchase!</p>
-                    </div>
+                <div className="flex justify-between font-bold">
+                    <span>Total</span>
+                    <span>{sale.totalAmount.toFixed(2)}</span>
+                </div>
+                 <div className="text-center mt-2">
+                    <p>Thank you for your purchase!</p>
                 </div>
             </div>
 
@@ -172,6 +129,6 @@ export default function PrintReceiptPage() {
                     Print Receipt
                 </Button>
             </div>
-        </PrintLayout>
+        </div>
     );
 }
