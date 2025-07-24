@@ -285,8 +285,18 @@ export function BillingClient() {
   }
 
   const handlePrint = (saleId: string) => {
-    window.print();
-    toast({ title: "Print Initiated", description: "Receipt sent to printer." });
+    const receiptToPrint = document.getElementById(saleId);
+    if (receiptToPrint) {
+        // Temporarily change class for printing
+        const originalClassName = receiptToPrint.className;
+        receiptToPrint.className = 'printable-area';
+        window.print();
+        // Revert class after print dialog is closed
+        receiptToPrint.className = originalClassName;
+        toast({ title: "Print Initiated", description: "Receipt sent to printer." });
+    } else {
+        toast({ variant: 'destructive', title: "Print Error", description: "Could not find the receipt to print." });
+    }
   };
 
   const { todaysTotalRevenue, todaysTotalItems } = todaysSales.reduce((acc, sale) => {
@@ -300,7 +310,7 @@ export function BillingClient() {
     }, { todaysTotalRevenue: 0, todaysTotalItems: 0 });
 
   return (
-      <div className="space-y-8">
+      <div className="space-y-8 no-print">
           {/* Top Section: New Bill */}
           <div className="space-y-4">
               <h3 className="text-xl font-semibold">New Bill / Customer</h3>
@@ -418,7 +428,7 @@ export function BillingClient() {
                               <p className="text-center text-muted-foreground py-8">No sales yet today.</p>
                            ) : (
                                todaysSales.map(sale => (
-                                <div key={sale.id} className="border rounded-lg p-4 printable-area" >
+                                <div key={sale.id} id={sale.id} className="border rounded-lg p-4" >
                                     <div>
                                         <div className="flex justify-between items-center mb-2">
                                             <div>
@@ -427,7 +437,7 @@ export function BillingClient() {
                                                     {format(sale.createdAt.toDate(), 'p')} by <span className='capitalize'>{sale.createdByRole}</span>
                                                 </p>
                                             </div>
-                                             <div className="flex items-center gap-2 no-print">
+                                             <div className="flex items-center gap-2">
                                                 <Badge variant="outline">Total: {sale.totalAmount.toFixed(2)}</Badge>
                                                 <Button size="icon" variant="ghost" onClick={() => handlePrint(sale.id)}>
                                                   <Printer className="h-4 w-4" />

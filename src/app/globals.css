@@ -58,44 +58,46 @@
   }
 }
 
-/* Print-specific styles for POS receipts */
+.printable-area {
+  display: none;
+}
+
 @media print {
   @page {
-    size: 58mm auto; /* Standard POS receipt paper width for 2-inch printers */
+    size: 58mm auto;
     margin: 0;
   }
 
   body {
     margin: 0;
     padding: 0;
-  }
-  
-  body * {
-    visibility: hidden;
-  }
-  
-  .printable-area, .printable-area * {
-    visibility: visible;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
+  .no-print {
+    display: none !important;
+  }
+  
   .printable-area {
+    display: block !important;
     position: absolute;
-    left: 0;
     top: 0;
+    left: 0;
     width: 100%;
-    font-size: 8pt; /* Smaller font for narrow receipts */
+    font-size: 8pt;
     color: black;
   }
 
-  /* Ensure tables and text are compact */
   .printable-area table,
   .printable-area th,
   .printable-area td {
     padding: 0;
     border: none;
     text-align: left;
+    color: black !important;
   }
-
+  
   .printable-area th,
   .printable-area td {
     padding: 1mm 0;
@@ -113,10 +115,5 @@
     margin: 0;
     padding: 0;
     color: black !important;
-  }
-
-  /* Hide elements that should not be printed */
-  .no-print {
-    display: none !important;
   }
 }
