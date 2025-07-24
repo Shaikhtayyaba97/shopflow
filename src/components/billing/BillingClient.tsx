@@ -287,11 +287,21 @@ export function BillingClient() {
   }
 
   const handlePrint = (saleId: string) => {
-    const receiptElement = receiptRefs.current.get(saleId);
-    if (receiptElement) {
+    try {
+        const receiptElement = receiptRefs.current.get(saleId);
+        if (!receiptElement) {
+            throw new Error("Receipt element not found in DOM.");
+        }
+        
         receiptElement.classList.add('printable-area');
         window.print();
         receiptElement.classList.remove('printable-area');
+
+        toast({ title: "Print Initiated", description: "Receipt sent to printer." });
+
+    } catch(error: any) {
+        toast({ variant: 'destructive', title: 'Print Error', description: error.message || 'Could not initiate printing.' });
+        console.error("Printing failed:", error);
     }
   };
 
@@ -424,8 +434,8 @@ export function BillingClient() {
                               <p className="text-center text-muted-foreground py-8">No sales yet today.</p>
                            ) : (
                                todaysSales.map(sale => (
-                                <div key={sale.id} className="border rounded-lg p-4" ref={(el) => receiptRefs.current.set(sale.id, el)}>
-                                    <div>
+                                <div key={sale.id} className="border rounded-lg p-4" >
+                                    <div ref={(el) => receiptRefs.current.set(sale.id, el)}>
                                         <div className="flex justify-between items-center mb-2">
                                             <div>
                                                 <p className="font-semibold">Receipt #{sale.id.slice(0, 6)}</p>

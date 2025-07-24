@@ -69,15 +69,14 @@
       position: absolute;
       left: 0;
       top: 0;
-      width: 80mm; /* Common POS receipt width */
+      width: 100%;
+      padding: 0;
+      margin: 0;
       font-size: 10pt; /* Adjust font size for receipts */
-      padding: 1rem;
       background: white;
       color: black;
     }
-    .printable-area *,
-    .printable-area *::before,
-    .printable-area *::after {
+    .printable-area * {
       visibility: visible !important;
     }
     body > *:not(.printable-area) {
