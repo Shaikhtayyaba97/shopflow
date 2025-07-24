@@ -60,9 +60,14 @@
 
 @layer utilities {
   @media print {
+    @page {
+      size: 80mm auto; /* Standard POS receipt paper width */
+      margin: 0;
+    }
     body {
-        margin: 0;
-        padding: 0;
+      margin: 0;
+      padding: 0;
+      background: white;
     }
     .printable-area {
       visibility: visible !important;
@@ -70,10 +75,7 @@
       left: 0;
       top: 0;
       width: 100%;
-      padding: 0;
-      margin: 0;
-      font-size: 10pt; /* Adjust font size for receipts */
-      background: white;
+      font-size: 10pt;
       color: black;
     }
     .printable-area * {
