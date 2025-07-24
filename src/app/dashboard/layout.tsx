@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Menu, Package, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -61,14 +61,21 @@ export default function DashboardLayout({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="sm:max-w-xs">
+              <SheetHeader className="mb-4">
+                  <SheetTitle>
+                     <Link
+                        href="/dashboard"
+                        className="group flex items-center gap-2 text-lg font-semibold"
+                      >
+                        <Package className="h-6 w-6 transition-all group-hover:scale-110" />
+                        <span>ShopFlow</span>
+                      </Link>
+                  </SheetTitle>
+                  <SheetDescription>
+                    Navigate through the application sections.
+                  </SheetDescription>
+              </SheetHeader>
               <nav className="grid gap-6 text-lg font-medium">
-                <Link
-                  href="/dashboard"
-                  className="group flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary text-lg font-semibold text-primary-foreground md:text-base"
-                >
-                  <Package className="h-5 w-5 transition-all group-hover:scale-110" />
-                  <span className="sr-only">ShopFlow</span>
-                </Link>
                 <AppSidebar.MobileLinks userProfile={userProfile} />
               </nav>
             </SheetContent>
