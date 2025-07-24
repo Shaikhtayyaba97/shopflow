@@ -43,17 +43,9 @@ export default function PrintReceiptPage() {
             fetchSale();
         }
     }, [saleId, toast]);
-    
-    useEffect(() => {
-      if (sale) {
-        // Automatically trigger print dialog when sale data is loaded
-        handlePrint();
-      }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [sale])
 
     const handlePrint = () => {
-        setTimeout(() => window.print(), 500); // Small delay to ensure content is rendered
+        window.print();
     };
 
     if (loading) {
@@ -76,31 +68,31 @@ export default function PrintReceiptPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center py-8">
-            <div className="w-[58mm] bg-white p-2 printable-area">
-                <div className="text-center">
+        <div className="bg-gray-100 flex flex-col items-center justify-center min-h-screen py-8">
+            <div className="printable-area w-[58mm] bg-white p-2 shadow-lg">
+                <div className="text-center text-black">
                     <h1 className="font-bold text-sm">ShopFlow</h1>
-                    <p>Your friendly neighborhood store.</p>
-                    <p>Date: {format(sale.createdAt.toDate(), 'dd/MM/yyyy p')}</p>
-                    <p>Receipt #: {sale.id.slice(0, 6)}</p>
+                    <p className="text-xs">Your friendly neighborhood store.</p>
+                    <p className="text-xs">Date: {format(sale.createdAt.toDate(), 'dd/MM/yyyy p')}</p>
+                    <p className="text-xs">Receipt #: {sale.id.slice(0, 6)}</p>
                 </div>
 
                 <Separator className="border-dashed border-black my-1" />
 
-                <Table>
+                <Table className="text-xs">
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Item</TableHead>
-                            <TableHead className="text-right">Qty</TableHead>
-                            <TableHead className="text-right">Total</TableHead>
+                            <TableHead className="h-auto p-1 text-black">Item</TableHead>
+                            <TableHead className="h-auto p-1 text-right text-black">Qty</TableHead>
+                            <TableHead className="h-auto p-1 text-right text-black">Total</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {sale.items.map((item, index) => (
-                            <TableRow key={index} className={item.returned ? 'line-through' : ''}>
-                                <TableCell>{item.name}</TableCell>
-                                <TableCell className="text-right">{item.quantity}</TableCell>
-                                <TableCell className="text-right">
+                            <TableRow key={index} className={`border-b-0 ${item.returned ? 'line-through' : ''}`}>
+                                <TableCell className="p-1 font-mono text-black">{item.name}</TableCell>
+                                <TableCell className="p-1 text-right font-mono text-black">{item.quantity}</TableCell>
+                                <TableCell className="p-1 text-right font-mono text-black">
                                     {(item.sellingPrice * item.quantity).toFixed(2)}
                                 </TableCell>
                             </TableRow>
@@ -110,12 +102,12 @@ export default function PrintReceiptPage() {
 
                 <Separator className="border-dashed border-black my-1" />
 
-                <div className="flex justify-between font-bold">
-                    <span>Total</span>
-                    <span>{sale.totalAmount.toFixed(2)}</span>
+                <div className="flex justify-between font-bold text-xs">
+                    <span className="text-black">Total</span>
+                    <span className="text-black">{sale.totalAmount.toFixed(2)}</span>
                 </div>
                  <div className="text-center mt-2">
-                    <p>Thank you for your purchase!</p>
+                    <p className="text-xs text-black">Thank you for your purchase!</p>
                 </div>
             </div>
 
