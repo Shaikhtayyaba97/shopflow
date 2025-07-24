@@ -31,6 +31,7 @@ import { ProductForm } from './ProductForm';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '../ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 
 export function ProductsList() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -105,47 +106,114 @@ export function ProductsList() {
 
     return (
         <>
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Barcode</TableHead>
-                    {isAdmin && <TableHead>Purchase Price</TableHead>}
-                    <TableHead>Selling Price</TableHead>
-                    <TableHead>Stock Qty</TableHead>
-                    <TableHead>Created At</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {products.length === 0 ? (
+        <div className="hidden md:block">
+            <Table>
+                <TableHeader>
                     <TableRow>
-                        <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">No products found.</TableCell>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Barcode</TableHead>
+                        {isAdmin && <TableHead>Purchase Price</TableHead>}
+                        <TableHead>Selling Price</TableHead>
+                        <TableHead>Stock Qty</TableHead>
+                        <TableHead>Created At</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                ) : products.map((product) => (
-                    <TableRow key={product.id}>
-                        <TableCell className="font-medium">{product.name}</TableCell>
-                        <TableCell>{product.barcode || 'N/A'}</TableCell>
-                        {isAdmin && <TableCell>{product.purchasePrice?.toFixed(2) ?? '0.00'}</TableCell>}
-                        <TableCell>{product.sellingPrice?.toFixed(2) ?? 'N/A'}</TableCell>
-                        <TableCell>
-                            {product.quantity > 0 ? (
-                                product.quantity
+                </TableHeader>
+                <TableBody>
+                    {products.length === 0 ? (
+                        <TableRow>
+                            <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-8">No products found.</TableCell>
+                        </TableRow>
+                    ) : products.map((product) => (
+                        <TableRow key={product.id}>
+                            <TableCell className="font-medium">{product.name}</TableCell>
+                            <TableCell>{product.barcode || 'N/A'}</TableCell>
+                            {isAdmin && <TableCell>{product.purchasePrice?.toFixed(2) ?? '0.00'}</TableCell>}
+                            <TableCell>{product.sellingPrice?.toFixed(2) ?? 'N/A'}</TableCell>
+                            <TableCell>
+                                {product.quantity > 0 ? (
+                                    product.quantity
+                                ) : (
+                                    <Badge variant="destructive">Out of Stock</Badge>
+                                )}
+                            </TableCell>
+                            <TableCell>{product.createdAt ? format(product.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                    {isAdmin && (
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="icon" disabled={deletingId === product.id}>
+                                                {deletingId === product.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This action cannot be undone. This will permanently delete the product.
+                                            </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => handleDelete(product.id)}>Continue</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                    )}
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+
+        <div className="grid gap-4 md:hidden">
+            {products.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No products found.</p>
+            ) : products.map((product) => (
+                <Card key={product.id}>
+                    <CardHeader>
+                        <CardTitle className="text-lg">{product.name}</CardTitle>
+                        <CardDescription>{product.barcode || 'No barcode'}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-2 text-sm">
+                        <div className="flex justify-between">
+                            <span className="font-medium">Selling Price:</span>
+                            <span>{product.sellingPrice?.toFixed(2) ?? 'N/A'}</span>
+                        </div>
+                        {isAdmin && (
+                            <div className="flex justify-between">
+                                <span className="font-medium">Purchase Price:</span>
+                                <span>{product.purchasePrice?.toFixed(2) ?? '0.00'}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                            <span className="font-medium">Stock:</span>
+                             {product.quantity > 0 ? (
+                                <Badge variant="outline">{product.quantity}</Badge>
                             ) : (
                                 <Badge variant="destructive">Out of Stock</Badge>
                             )}
-                        </TableCell>
-                        <TableCell>{product.createdAt ? format(product.createdAt.toDate(), 'PP') : 'N/A'}</TableCell>
-                        <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => handleEdit(product)}>
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                                {isAdmin && (
+                        </div>
+                         <div className="flex justify-between">
+                            <span className="font-medium">Created:</span>
+                            <span>{product.createdAt ? format(product.createdAt.toDate(), 'PP') : 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 pt-2">
+                            <Button variant="ghost" size="sm" onClick={() => handleEdit(product)}>
+                                <Edit className="mr-2 h-4 w-4" /> Edit
+                            </Button>
+                            {isAdmin && (
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" disabled={deletingId === product.id}>
-                                            {deletingId === product.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 text-destructive" />}
+                                        <Button variant="ghost" size="sm" disabled={deletingId === product.id} className="text-destructive hover:text-destructive">
+                                            {deletingId === product.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                            Delete
                                         </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
@@ -161,13 +229,12 @@ export function ProductsList() {
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
-                                )}
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
 
         <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
             <DialogContent>
@@ -184,5 +251,3 @@ export function ProductsList() {
         </>
     );
 }
-
-    

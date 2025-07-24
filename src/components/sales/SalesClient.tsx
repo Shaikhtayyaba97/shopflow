@@ -296,18 +296,18 @@ export function SalesClient() {
                                     <CardTitle>Sales for {format(new Date(dateKey), 'PPP')}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                                         <Card>
-                                            <CardHeader><CardTitle>Total Items Sold</CardTitle></CardHeader>
+                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Items Sold</CardTitle></CardHeader>
                                             <CardContent><p className="text-2xl font-bold">{totals.totalItems}</p></CardContent>
                                         </Card>
                                         <Card>
-                                            <CardHeader><CardTitle>Total Revenue</CardTitle></CardHeader>
+                                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Revenue</CardTitle></CardHeader>
                                             <CardContent><p className="text-2xl font-bold">{totals.revenue.toFixed(2)}</p></CardContent>
                                         </Card>
                                         {isAdmin && (
                                             <Card>
-                                                <CardHeader><CardTitle>Total Profit</CardTitle></CardHeader>
+                                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Profit</CardTitle></CardHeader>
                                                 <CardContent><p className="text-2xl font-bold text-green-600">{totals.profit.toFixed(2)}</p></CardContent>
                                             </Card>
                                         )}
@@ -317,86 +317,88 @@ export function SalesClient() {
                                             <CardTitle className="text-lg">Sales Details</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Time</TableHead>
-                                                        <TableHead>Sold By</TableHead>
-                                                        <TableHead>Product</TableHead>
-                                                        <TableHead>Qty</TableHead>
-                                                        {isAdmin && <TableHead className="text-right">Buying Price</TableHead>}
-                                                        <TableHead className="text-right">Selling Price</TableHead>
-                                                        <TableHead className="text-right">Total Amount</TableHead>
-                                                        {isAdmin && <TableHead className="text-right">Profit</TableHead>}
-                                                        <TableHead className="text-right">Actions</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {sales.length === 0 ? (
+                                           <div className="overflow-x-auto">
+                                                <Table>
+                                                    <TableHeader>
                                                         <TableRow>
-                                                            <TableCell colSpan={isAdmin ? 9 : 7} className="text-center py-8 text-muted-foreground">
-                                                                No sales recorded on this date.
-                                                            </TableCell>
+                                                            <TableHead>Time</TableHead>
+                                                            <TableHead>Sold By</TableHead>
+                                                            <TableHead>Product</TableHead>
+                                                            <TableHead>Qty</TableHead>
+                                                            {isAdmin && <TableHead className="text-right">Buying Price</TableHead>}
+                                                            <TableHead className="text-right">Selling Price</TableHead>
+                                                            <TableHead className="text-right">Total Amount</TableHead>
+                                                            {isAdmin && <TableHead className="text-right">Profit</TableHead>}
+                                                            <TableHead className="text-right">Actions</TableHead>
                                                         </TableRow>
-                                                    ) : (
-                                                        sales.flatMap(sale => 
-                                                            sale.items.map((item, index) => (
-                                                                <TableRow key={`${sale.id}-${item.productId}-${index}`} className={cn(item.returned && "bg-muted/50")}>
-                                                                    <TableCell className={cn(item.returned && "line-through")}>{format(sale.createdAt.toDate(), 'p')}</TableCell>
-                                                                    <TableCell className={cn("capitalize", item.returned && "line-through")}>
-                                                                        <Badge variant="outline">{sale.createdByRole}</Badge>
-                                                                    </TableCell>
-                                                                    <TableCell className={cn(item.returned && "line-through")}>{item.name}</TableCell>
-                                                                    <TableCell className={cn(item.returned && "line-through")}>{item.quantity}</TableCell>
-                                                                    {isAdmin && <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.purchasePrice ?? 0).toFixed(2)}</TableCell>}
-                                                                    <TableCell className={cn("text-right", item.returned && "line-through")}>{item.sellingPrice.toFixed(2)}</TableCell>
-                                                                    <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
-                                                                    {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
-                                                                    <TableCell className="text-right">
-                                                                        <div className="flex justify-end items-center">
-                                                                            {item.returned ? (
-                                                                                <Badge className={cn(
-                                                                                    "text-white",
-                                                                                    item.returnedByRole === 'admin' ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'
-                                                                                )}>Returned</Badge>
-                                                                            ) : (
-                                                                                <>
-                                                                                 {isAdmin &&
-                                                                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(sale, item)}>
-                                                                                            <Edit className="h-4 w-4" />
-                                                                                        </Button>
-                                                                                    }
-                                                                                <AlertDialog>
-                                                                                    <AlertDialogTrigger asChild>
-                                                                                        <Button variant="ghost" size="icon" disabled={isReturning === `${item.saleId}-${item.itemIndex}`}>
-                                                                                            {isReturning === `${item.saleId}-${item.itemIndex}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
-                                                                                        </Button>
-                                                                                    </AlertDialogTrigger>
-                                                                                    <AlertDialogContent>
-                                                                                        <AlertDialogHeader>
-                                                                                            <AlertDialogTitle>Return Item?</AlertDialogTitle>
-                                                                                            <AlertDialogDescription>
-                                                                                                Are you sure you want to mark this item as returned? This will add {item.quantity} back to the stock for {item.name}. This action cannot be undone.
-                                                                                            </AlertDialogDescription>
-                                                                                        </AlertDialogHeader>
-                                                                                        <AlertDialogFooter>
-                                                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                                                            <AlertDialogAction onClick={() => handleReturn(item.saleId, item.itemIndex, item.productId, item.quantity)}>
-                                                                                                Confirm Return
-                                                                                            </AlertDialogAction>
-                                                                                        </AlertDialogFooter>
-                                                                                    </AlertDialogContent>
-                                                                                </AlertDialog>
-                                                                                </>
-                                                                            )}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            ))
-                                                        )
-                                                    )}
-                                                </TableBody>
-                                            </Table>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {sales.length === 0 ? (
+                                                            <TableRow>
+                                                                <TableCell colSpan={isAdmin ? 9 : 7} className="text-center py-8 text-muted-foreground">
+                                                                    No sales recorded on this date.
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ) : (
+                                                            sales.flatMap(sale => 
+                                                                sale.items.map((item, index) => (
+                                                                    <TableRow key={`${sale.id}-${item.productId}-${index}`} className={cn(item.returned && "bg-muted/50")}>
+                                                                        <TableCell className={cn(item.returned && "line-through")}>{format(sale.createdAt.toDate(), 'p')}</TableCell>
+                                                                        <TableCell className={cn("capitalize", item.returned && "line-through")}>
+                                                                            <Badge variant="outline">{sale.createdByRole}</Badge>
+                                                                        </TableCell>
+                                                                        <TableCell className={cn("min-w-[150px]", item.returned && "line-through")}>{item.name}</TableCell>
+                                                                        <TableCell className={cn(item.returned && "line-through")}>{item.quantity}</TableCell>
+                                                                        {isAdmin && <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.purchasePrice ?? 0).toFixed(2)}</TableCell>}
+                                                                        <TableCell className={cn("text-right", item.returned && "line-through")}>{item.sellingPrice.toFixed(2)}</TableCell>
+                                                                        <TableCell className={cn("text-right", item.returned && "line-through")}>{(item.sellingPrice * item.quantity).toFixed(2)}</TableCell>
+                                                                        {isAdmin && <TableCell className={cn("text-right text-green-600", item.returned && "line-through text-red-600")}>{item.profit.toFixed(2)}</TableCell>}
+                                                                        <TableCell className="text-right">
+                                                                            <div className="flex justify-end items-center">
+                                                                                {item.returned ? (
+                                                                                    <Badge className={cn(
+                                                                                        "text-white",
+                                                                                        item.returnedByRole === 'admin' ? 'bg-green-600 hover:bg-green-700' : 'bg-destructive hover:bg-destructive/90'
+                                                                                    )}>Returned</Badge>
+                                                                                ) : (
+                                                                                    <>
+                                                                                    {isAdmin &&
+                                                                                            <Button variant="ghost" size="icon" onClick={() => handleEdit(sale, item)}>
+                                                                                                <Edit className="h-4 w-4" />
+                                                                                            </Button>
+                                                                                        }
+                                                                                    <AlertDialog>
+                                                                                        <AlertDialogTrigger asChild>
+                                                                                            <Button variant="ghost" size="icon" disabled={isReturning === `${item.saleId}-${item.itemIndex}`}>
+                                                                                                {isReturning === `${item.saleId}-${item.itemIndex}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Undo2 className="h-4 w-4" />}
+                                                                                            </Button>
+                                                                                        </AlertDialogTrigger>
+                                                                                        <AlertDialogContent>
+                                                                                            <AlertDialogHeader>
+                                                                                                <AlertDialogTitle>Return Item?</AlertDialogTitle>
+                                                                                                <AlertDialogDescription>
+                                                                                                    Are you sure you want to mark this item as returned? This will add {item.quantity} back to the stock for {item.name}. This action cannot be undone.
+                                                                                                </AlertDialogDescription>
+                                                                                            </AlertDialogHeader>
+                                                                                            <AlertDialogFooter>
+                                                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                                                <AlertDialogAction onClick={() => handleReturn(item.saleId, item.itemIndex, item.productId, item.quantity)}>
+                                                                                                    Confirm Return
+                                                                                                </AlertDialogAction>
+                                                                                            </AlertDialogFooter>
+                                                                                        </AlertDialogContent>
+                                                                                    </AlertDialog>
+                                                                                    </>
+                                                                                )}
+                                                                            </div>
+                                                                        </TableCell>
+                                                                    </TableRow>
+                                                                ))
+                                                            )
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                           </div>
                                         </CardContent>
                                     </Card>
                                 </CardContent>

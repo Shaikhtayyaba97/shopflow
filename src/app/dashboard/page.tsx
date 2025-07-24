@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -51,7 +52,7 @@ export default function DashboardPage() {
 
   if (loading || !userProfile) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -63,17 +64,13 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-bold">{welcomeMessage}</h1>
-              <Button variant="outline" onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Logout
-              </Button>
+      <div className="flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-2">
+              <h1 className="text-2xl font-bold">{welcomeMessage}</h1>
           </div>
         <p className="text-muted-foreground">Here's a quick overview of your shop. Select an action to get started.</p>
         
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-4">
           <Card>
             <CardHeader>
               <CardTitle>Billing</CardTitle>
@@ -122,7 +119,7 @@ export default function DashboardPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Stock Quantity</CardTitle>

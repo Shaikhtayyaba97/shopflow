@@ -9,6 +9,7 @@ import {
   ScanLine,
   LineChart,
   DollarSign,
+  Users,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -20,10 +21,27 @@ import {
 } from "@/components/ui/tooltip";
 import { useRouter, usePathname } from "next/navigation";
 import type { UserProfile } from "@/types";
+import { cn } from "@/lib/utils";
 
-const NavLink = ({ href, icon: Icon, label }: { href: string; icon: React.ElementType; label: string }) => {
+
+const NavLink = ({ href, icon: Icon, label, isMobile = false }: { href: string; icon: React.ElementType; label: string; isMobile?: boolean }) => {
     const pathname = usePathname();
     const isActive = pathname.startsWith(href) && (href !== '/dashboard' || pathname === '/dashboard');
+
+    if (isMobile) {
+        return (
+             <Link
+                href={href}
+                className={cn(
+                    "flex items-center gap-4 px-2.5",
+                    isActive ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+            >
+                <Icon className="h-5 w-5" />
+                {label}
+            </Link>
+        )
+    }
 
     return (
         <Tooltip>
@@ -44,6 +62,19 @@ const NavLink = ({ href, icon: Icon, label }: { href: string; icon: React.Elemen
 };
 
 
+const MobileLinks = ({ userProfile }: { userProfile: UserProfile }) => (
+    <>
+        <NavLink href="/dashboard" icon={Home} label="Dashboard" isMobile />
+        <NavLink href="/dashboard/products" icon={Package} label="Products" isMobile />
+        <NavLink href="/dashboard/billing" icon={ScanLine} label="Billing" isMobile />
+        <NavLink href="/dashboard/sales" icon={DollarSign} label="Sales" isMobile />
+        {userProfile.role === 'admin' && (
+            <NavLink href="/dashboard/reports" icon={LineChart} label="Reports" isMobile />
+        )}
+    </>
+)
+
+
 export function AppSidebar({ userProfile }: { userProfile: UserProfile }) {
   const router = useRouter();
 
@@ -54,7 +85,7 @@ export function AppSidebar({ userProfile }: { userProfile: UserProfile }) {
 
   return (
     <TooltipProvider>
-      <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-card sm:flex">
+      <aside className="fixed inset-y-0 left-0 z-10 hidden w-14 flex-col border-r bg-background sm:flex">
         <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
           <Link
             href="/dashboard"
@@ -89,3 +120,5 @@ export function AppSidebar({ userProfile }: { userProfile: UserProfile }) {
     </TooltipProvider>
   );
 }
+
+AppSidebar.MobileLinks = MobileLinks;
