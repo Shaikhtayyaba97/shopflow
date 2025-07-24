@@ -44,12 +44,46 @@ export default function PrintReceiptPage() {
     }, [saleId, toast]);
 
     const handlePrint = () => {
-        window.print();
+        const receiptContent = document.getElementById('receipt-content');
+        if (receiptContent) {
+            const printWindow = window.open('', '', 'height=600,width=800');
+            if (printWindow) {
+                printWindow.document.write('<html><head><title>Print Receipt</title>');
+                // Simple styling for the print window
+                printWindow.document.write(`
+                    <style>
+                        @page { size: 58mm; margin: 0; }
+                        body { font-family: monospace; font-size: 8pt; margin: 4px; color: black; }
+                        h1, p { margin: 0; }
+                        table { width: 100%; border-collapse: collapse; }
+                        th, td { padding: 1px 0; }
+                        th { text-align: left; }
+                        .text-center { text-align: center; }
+                        .text-right { text-align: right; }
+                        .font-bold { font-weight: bold; }
+                        .text-sm { font-size: 10pt; }
+                        hr { border: none; border-top: 1px dashed black; margin: 2px 0; }
+                    </style>
+                `);
+                printWindow.document.write('</head><body>');
+                printWindow.document.write(receiptContent.innerHTML);
+                printWindow.document.write('</body></html>');
+                printWindow.document.close();
+                printWindow.focus();
+                printWindow.print();
+                printWindow.close();
+            } else {
+                toast({ variant: 'destructive', title: 'Print Error', description: 'Could not open print window. Please disable popup blockers.' });
+            }
+        } else {
+            toast({ variant: 'destructive', title: 'Print Error', description: 'Could not find receipt content.' });
+        }
     };
+    
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center">
+            <div className="flex h-screen items-center justify-center bg-gray-100">
                 <Loader2 className="h-8 w-8 animate-spin" />
             </div>
         );
@@ -57,60 +91,63 @@ export default function PrintReceiptPage() {
 
     if (!sale) {
         return (
-            <div className="flex h-screen items-center justify-center">
+            <div className="flex h-screen items-center justify-center bg-gray-100">
                 <div className="bg-white p-4 rounded shadow-md text-center">
                     <p>Sale not found.</p>
-                    <Button onClick={() => router.back()} className="mt-4 no-print">Go Back</Button>
+                    <Button onClick={() => router.back()} className="mt-4">Go Back</Button>
                 </div>
             </div>
         );
     }
 
+    // This is the visible component on the page
     return (
-        <>
-            <div className="w-[58mm] bg-white p-2 mx-auto my-8 shadow-lg font-mono text-xs">
-                <div className="text-center text-black">
-                    <h1 className="font-bold text-sm">ShopFlow</h1>
-                    <p className="text-xs">Your friendly neighborhood store.</p>
-                    <p className="text-xs">Date: {format(sale.createdAt.toDate(), 'dd/MM/yyyy p')}</p>
-                    <p className="text-xs">Receipt #: {sale.id.slice(0, 6)}</p>
-                </div>
+        <div className="bg-gray-100 min-h-screen py-8">
+            <div id="receipt-container" className="w-[58mm] bg-white p-2 mx-auto my-8 shadow-lg">
+                <div id="receipt-content">
+                    <div className="text-center text-black">
+                        <h1 className="font-bold text-sm">ShopFlow</h1>
+                        <p style={{fontSize: '8pt'}}>Your friendly neighborhood store.</p>
+                        <p style={{fontSize: '8pt'}}>Date: {format(sale.createdAt.toDate(), 'dd/MM/yyyy p')}</p>
+                        <p style={{fontSize: '8pt'}}>Receipt #: {sale.id.slice(0, 6)}</p>
+                    </div>
 
-                <Separator className="border-dashed border-black my-1" />
+                    <hr />
+                    
+                    <table style={{fontSize: '8pt', width: '100%'}}>
+                        <thead>
+                            <tr>
+                                <th style={{textAlign: 'left'}}>Item</th>
+                                <th style={{textAlign: 'center'}}>Qty</th>
+                                <th style={{textAlign: 'right'}}>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {sale.items.map((item, index) => (
+                                <tr key={index} style={{ textDecoration: item.returned ? 'line-through' : 'none' }}>
+                                    <td>{item.name}</td>
+                                    <td style={{textAlign: 'center'}}>{item.quantity}</td>
+                                    <td style={{textAlign: 'right'}}>
+                                        {(item.sellingPrice * item.quantity).toFixed(2)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
 
-                <Table className="text-xs">
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="h-auto p-0 text-black font-bold">Item</TableHead>
-                            <TableHead className="h-auto p-0 text-center text-black font-bold">Qty</TableHead>
-                            <TableHead className="h-auto p-0 text-right text-black font-bold">Total</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {sale.items.map((item, index) => (
-                            <TableRow key={index} className={`border-b-0 ${item.returned ? 'line-through' : ''}`}>
-                                <TableCell className="p-0 font-mono text-black">{item.name}</TableCell>
-                                <TableCell className="p-0 text-center font-mono text-black">{item.quantity}</TableCell>
-                                <TableCell className="p-0 text-right font-mono text-black">
-                                    {(item.sellingPrice * item.quantity).toFixed(2)}
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
+                    <hr />
 
-                <Separator className="border-dashed border-black my-1" />
-
-                <div className="flex justify-between font-bold text-xs text-black">
-                    <span>Total</span>
-                    <span>{sale.totalAmount.toFixed(2)}</span>
-                </div>
-                 <div className="text-center mt-2">
-                    <p className="text-xs text-black">Thank you for your purchase!</p>
+                    <div style={{display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '9pt'}}>
+                        <span>Total</span>
+                        <span>{sale.totalAmount.toFixed(2)}</span>
+                    </div>
+                     <div className="text-center" style={{marginTop: '8px'}}>
+                        <p style={{fontSize: '8pt'}}>Thank you for your purchase!</p>
+                    </div>
                 </div>
             </div>
 
-            <div className="no-print mt-6 flex gap-4 justify-center">
+            <div className="mt-6 flex gap-4 justify-center">
                  <Button variant="outline" onClick={() => router.push('/dashboard/billing')}>
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to Billing
@@ -120,6 +157,6 @@ export default function PrintReceiptPage() {
                     Print Receipt
                 </Button>
             </div>
-        </>
+        </div>
     );
 }

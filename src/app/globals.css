@@ -57,14 +57,3 @@
     @apply bg-background text-foreground;
   }
 }
-
-@page {
-  size: 58mm;
-  margin: 0mm;
-}
-
-@media print {
-  .no-print {
-    display: none !important;
-  }
-}
