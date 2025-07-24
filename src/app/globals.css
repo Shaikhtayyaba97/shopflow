@@ -69,18 +69,15 @@
     margin: 0;
     padding: 0;
   }
-
-  /* Hide everything by default */
+  
   body * {
     visibility: hidden;
   }
   
-  /* Only show the printable area and its contents */
   .printable-area, .printable-area * {
     visibility: visible;
   }
 
-  /* Position the printable area at the top */
   .printable-area {
     position: absolute;
     left: 0;
@@ -88,8 +85,6 @@
     width: 100%;
     font-size: 8pt; /* Smaller font for narrow receipts */
     color: black;
-    padding: 2mm;
-    box-sizing: border-box;
   }
 
   /* Ensure tables and text are compact */
