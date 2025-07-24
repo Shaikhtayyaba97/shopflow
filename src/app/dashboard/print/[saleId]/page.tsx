@@ -49,9 +49,9 @@ export default function PrintReceiptPage() {
                 printWindow.document.write('<html><head><title>Print Receipt</title>');
                 printWindow.document.write(`
                     <style>
-                        @page { size: 58mm; margin: 0; }
-                        body { font-family: monospace; font-size: 8pt; margin: 4px; color: black; }
-                        h1, p { margin: 0; }
+                        @page { size: 58mm; margin: 2mm; }
+                        body { font-family: monospace; font-size: 8pt; margin: 0; color: black; }
+                        h1, p { margin: 0; padding: 0; }
                         table { width: 100%; border-collapse: collapse; }
                         th, td { padding: 1px 0; }
                         th { text-align: left; }
@@ -66,17 +66,13 @@ export default function PrintReceiptPage() {
                 printWindow.document.write(receiptContent.innerHTML);
                 printWindow.document.write('</body></html>');
                 printWindow.document.close();
-                printWindow.focus();
                 
-                setTimeout(() => {
-                    try {
-                        printWindow.print();
-                        printWindow.close();
-                    } catch (e) {
-                        console.error("Print failed:", e);
-                        toast({ variant: 'destructive', title: 'Print Error', description: 'Could not print. Please check console for details.' });
-                    }
-                }, 250);
+                printWindow.onafterprint = () => {
+                    printWindow.close();
+                };
+
+                printWindow.focus(); // required for some browsers
+                printWindow.print();
 
             } else {
                 toast({ variant: 'destructive', title: 'Print Error', description: 'Could not open print window. Please disable popup blockers.' });
